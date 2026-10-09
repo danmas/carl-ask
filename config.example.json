@@ -1,0 +1,27 @@
+{
+  "connections": {
+    "w2": {
+      "host": "192.168.1.12",
+      "port": 5432,
+      "database": "carlinkng",
+      "user": "carl",
+      "password": "${PG_PASSWORD_W2}",
+      "usePool": true,
+      "maxPoolSize": 5
+    },
+    "wpl2": {
+      "host": "192.168.1.22",
+      "port": 5432,
+      "database": "carlinkng",
+      "user": "carl",
+      "password": "${PG_PASSWORD_WPL-2}",
+      "usePool": true,
+      "maxPoolSize": 5,
+      "readOnly": true
+    }
+  },
+  "query": {
+    "statementTimeoutMs": 15000,
+    "maxRows": 500
+  }
+}

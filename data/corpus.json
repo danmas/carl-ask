@@ -1,0 +1,1059 @@
+[
+  {
+    "id": 1,
+    "kind": "letter",
+    "source": "api/api_supp.sql:67",
+    "question": "сегментировать базу покупателей (кто за последние два года делал ставки на легковые, строительную технику, сельхоз технику) в ямало-ненеком, тюменской области, Ханты-мансийском?\nЛегковые - object_type=1\nСтроительная  -  object_type=150 (топ 14 - спецтехника)\nСельхоз -  object_type=122 (топ 14 - спецтехника)",
+    "sql": "with aa as (\nselect distinct a.id_auction, a.id_user_profile from auction a, object o, object_type ot\nwhere a.id_object = o.id_object\nand ot.id_object_type=o.id_object_type\nand\n(ot.id_object_type in (1)\nor\n(ot.id_object_type = 150 or ot.id_object_type_parent = 150)-- - Строительная\nor\n(ot.id_object_type = 122 or ot.id_object_type_parent = 122)-- - Сельхоз\n)\nand a.dt_active >= '2023-01-01'\nand (getauctobjattrib(a.id_auction, 'region') ilike '%ненецк%'\nor getauctobjattrib(a.id_auction, 'region') ilike '%мансий%')\n)\nselect distinct *\nfrom (\n-- select '---------------- Делали ставки',null, null, null\nselect distinct -- 'Делал ставку',\n--u.id_user, p.id_profile, p.id_company is not null as company,\ngetUserSmartName(u.id_user) as user\n, u.email\n--      , getProfSmartName2(id_profile) as company\nfrom aa,\ncarl_an.auct_bids_an ab,\nusers u,\nprofile p\nwhere aa.id_auction = ab.id_auction\nand ab.id_user_bid = u.id_user\nand ab.id_profile_bid = p.id_profile\n--    and u.id_user in (20107, 19331)\n--             and u.id_user in (  9536)\nand ab.id_user_bid is not null               -- ставил\nand (p.id_individual is null or -- юрики\n(u.reg_domain = 'carlink'\nand p.dt_create > to_date('18.09.2023', 'DD.MM.YYYY'))\n)                           -- физы карлинка\nand _isBuyer(p.id_profile)                   -- покупатель\nand (not p.parameters ? 'employer') -- не промокодчик\nand u.is_deleted = 'N'\nand p.iS_deleted = 'N'\n--           and (p.who_can_buy & 1 > 0 or p.who_can_buy & 2 > 0)\n) t\n;\n-- … обрезано"
+  },
+  {
+    "id": 2,
+    "kind": "letter",
+    "source": "api/api_supp.sql:119",
+    "question": "ФЛ, чей депозит более 0, но менее 40 000\nи ИП, чей депозит более 0, но менее 80 000",
+    "sql": "select u.id_user, u.phone, u.email,  getProfSmartName2(pp.id_profile),\n-- pp.address\ncarl_prof._getAddrShort(pp.id_profile) as address\n, pp.balance_reserv, pp.balance_summ as balance_rest\nfrom profile pp, company c, users u\nwhere pp.is_deleted = 'N' and c.is_deleted = 'N'\nand pp.id_company = c.id_company\nand u.id_user = pp.id_user_owner\nand c.ownership_type = 'ИП'\nand coalesce(pp.balance_reserv + pp.balance_summ,0) > 0\nand coalesce(pp.balance_reserv + pp.balance_summ,0) < 80000\nunion all\nselect u.id_user, u.phone, u.email, getProfSmartName2(pp.id_profile)\n, carl_prof._getAddrShort(pp.id_profile) as address\n-- , pp.address\n, pp.balance_reserv, pp.balance_summ as balance_rest\nfrom profile pp, individual c, users u\nwhere pp.is_deleted = 'N' and c.is_deleted = 'N'\nand pp.id_individual = c.id_individual\nand u.id_user = pp.id_user_owner\nand coalesce(pp.balance_reserv + pp.balance_summ,0) > 0\nand coalesce(pp.balance_reserv + pp.balance_summ,0) < 40000"
+  },
+  {
+    "id": 3,
+    "kind": "letter",
+    "source": "api/api_supp.sql:154",
+    "question": "Пользователи, кто был не позже 2 лет назад\nсо всеми профилями и ролями в профилях\nВсе:   select * from getUserWithProfiles();\nОдин:  select * from getUserWithProfiles(119160);",
+    "sql": "create or replace function carl_prof.getUserWithProfiles(p_id_user int default null)\n    returns json security definer as $$\n    select json_agg(row_to_json(r)) from (\n    select Uu.id_user, uu.first_name, uu.last_name, uu.email, uu.phone, uu.status, uu.dt_created\n    , (SELECT\n        -- up.id_user,\n        string_agg(\n                carl_prof.getProfSmartName2(p.id_profile) || ':' ||\n                CASE\n                    WHEN 2=2 --p.id_broker is null -- не подброкерные\n                        and p.roles IS NULL OR array_length(p.roles, 1) = 0 THEN '--'\n                    ELSE (\n                        SELECT string_agg(\n                                CASE role_item::text\n                                    WHEN 'seller' THEN 'Продавец'\n                                    WHEN 'buyer' THEN 'Покупатель'\n                                    WHEN 'broker' THEN 'Брокер'\n                                    WHEN 'subscriber' THEN 'Подписчик'\n                                    ELSE role_item::text\n                                    END,\n                                '.'\n                                ORDER BY\n                                    CASE role_item::text\n                                        WHEN 'seller' THEN 1\n                                        WHEN 'buyer' THEN 2\n                                        WHEN 'broker' THEN 3\n                                        ELSE 4\n                                        END\n                               )\n                        FROM unnest(p.roles) AS role_item\n                    )\n                    END,\n                '; '\n                ORDER BY carl_prof.getProfSmartName2(p.id_profile)\n        ) AS profiles_with_roles\n    FROM\n        carl_data.user_profile up\n            JOIN carl_data.profile p ON up.id_profile = p.id_profile\n    WHERE\n        up.id_user = uu.id_user  -- замените на нужный id_user\n-- … обрезано"
+  },
+  {
+    "id": 4,
+    "kind": "note",
+    "source": "api/api_supp.sql:404",
+    "question": "По годам, сколько сделано отчетов в мобилке и в web\nдля o.id_organ = 2 (Каринспект)",
+    "sql": "-- select id_inspect_report,  report->>'appVersion', id_user, ir.dt_create, ir.is_deleted, coalesce(o.id_group,-1), o.id_organ\n-- select case when (report->>'appVersion' is not null) then 'mobile' else 'Web' end\n--      , to_char(date_trunc('year',ir.dt_create),'YYYY')\n--      , count(*)\n--     from inspect_report ir, organ o,  access_group ag\n--     where 2=2\n--\n--         and ag.id_access_group = ir.id_access_group\n--         and ag.id_organ = o.id_organ\n--         and o.id_organ = 2\n--         and ir.is_deleted = 'N'\n--     group by (report->>'appVersion' is not null), date_trunc('year',ir.dt_create)\n--     order by date_trunc('year',ir.dt_create), (report->>'appVersion' is not null)\n-- ;"
+  },
+  {
+    "id": 5,
+    "kind": "letter",
+    "source": "api/api_supp.sql:422",
+    "question": "Для каждого инспектора из списка посчитать процент отчетов на приложении и в вебе\nс даты: 01.10.2019",
+    "sql": ""
+  },
+  {
+    "id": 6,
+    "kind": "letter",
+    "source": "api/api_supp.sql:498",
+    "question": "сделать выгрузку покупателей (юр и физ лица)\n, зарегистрированных с сентября 2022 по январь 2023 включительно\n, с количеством ставок и покупок по продавцу Арвал (ID 19760 и 2)",
+    "sql": "with prf as (select id_profile, id_company is not null as is_yur\nfrom profile p\nwhere dt_create between to_date('01.09.2022', 'DD.MM.YYYY')\nand to_date('01.02.2023', 'DD.MM.YYYY')\n) select prf.id_profile\n, prf.is_yur\n, getprofsmartName2(prf.id_profile)\n-- , getProfBidCount(prf.id_profile, 19760, to_date('01.09.2022', 'DD.MM.YYYY'),  to_date('01.02.2030', 'DD.MM.YYYY'))\n, (select count(*)::int from auction a, auction_log al\nwhere a.id_auction = al.id_auction\nand al.event_type in ('MAKE_BID', 'AUTO_BID', 'SET_PROXY', 'BUYNOW')\nand al.id_profile = prf.id_profile\nand getSellerProfId(a.id_auction) in (19760, 2)) bids\n, (select count(*)::int from auction a\nwhere 2=2\nand a.status in ('SUCCESS', 'BUYNOW')\nand getauctleaderidprof(a.id_auction) = prf.id_profile\nand getSellerProfId(a.id_auction) in (19760, 2)) buys\nfrom prf\n;"
+  },
+  {
+    "id": 7,
+    "kind": "note",
+    "source": "api/api_supp.sql:526",
+    "question": "Кол-во Ставок профиля за период",
+    "sql": "-- create or replace function carl_auct.getProfBidCount(p_id_profile int\n--     , p_id_profile_sel int\n--     , p_dt_start timestamp\n--     , p_dt_end timestamp)\n--     returns int security definer as $$\n-- select count(*)::int from auction a, auction_log al\n-- where a.id_auction = al.id_auction\n--         and al.event_type in ('MAKE_BID', 'AUTO_BID', 'SET_PROXY', 'BUYNOW')\n--         and al.id_profile = p_id_profile\n--         and a.dt_start >= p_dt_start\n--         and a.dt_end < p_dt_end\n--         and getSellerProfId(a.id_auction) in (p_id_profile_sel)\n-- $$ language sql stable ;"
+  },
+  {
+    "id": 8,
+    "kind": "note",
+    "source": "api/api_supp.sql:5540",
+    "question": "Кол-во покупок профиля за период",
+    "sql": "create or replace function carl_auct.getProfBoughtCount(p_id_profile int\n    , p_id_profile_sel int\n    , p_dt_start timestamp\n    , p_dt_end timestamp)\n  returns int security definer as $$\n  select count(*)::int from auction a\n    where 2=2\n      and a.status in ('SUCCESS', 'BUYNOW')\n      and getauctleaderidprof(a.id_auction) = p_id_profile\n      and a.dt_start >= p_dt_start\n      and a.dt_end < p_dt_end\n      and getSellerProfId(a.id_auction) in (p_id_profile_sel)\n$$ language sql stable ;"
+  },
+  {
+    "id": 9,
+    "kind": "letter",
+    "source": "api/api_supp.sql:551",
+    "question": "сколько из акцептованных покупателей юридических лиц\n, покупают легкий коммерческий транспорт либо имеют признак/тэг что им интересна покупка ЛКТ.\nok buyer",
+    "sql": "select count(*) from survey_profile sp, profile p\nwhere sp.id_profile = p.id_profile\nand p.status = 'ok'\nand hasRole(p.id_profile,'buyer') = 'Y'\nand id_survey = 3\n-- group by p.id_profile\n;\n-- 3116\nselect * from survey;"
+  },
+  {
+    "id": 10,
+    "kind": "letter",
+    "source": "api/api_supp.sql:566",
+    "question": "общее число покупателей (физ и юр лица) которые зарегистрированы у нас\n, с городом регистрации Воронеж и Краснодар",
+    "sql": "select count(*) from (\nselect id_company is null as phys\n, carl_prof.getProfCity(p.id_profile)\nfrom profile p\nwhere (carl_prof.getProfCity(p.id_profile) ilike '%Воронеж%'\n-- or carl_prof.getProfCity(p.id_profile) ilike '%Краснодар%'\n) and p.status = 'ok'\nand hasRole(p.id_profile, 'buyer') = 'Y'\n) s1\n;\nselect count(*) from (\nselect id_company is null as phys\n, carl_prof.getProfCity(p.id_profile)\nfrom profile p\nwhere (-- carl_prof.getProfCity(p.id_profile) ilike '%Воронеж%'\n-- or\ncarl_prof.getProfCity(p.id_profile) ilike '%Краснодар%'\n) and p.status = 'ok'\nand hasRole(p.id_profile, 'buyer') = 'Y'\n) s1\n;"
+  },
+  {
+    "id": 11,
+    "kind": "letter",
+    "source": "api/api_supp.sql:592",
+    "question": "выгрузку по покупателям профилям, в разрезе\nколичество купленных автомобилей и размер комиссионного вознаграждения, которые нам покупателя заплатили за эти покупки. Выгрузка нужна общая - нарастающим итогом с начала работы платформы и за 22 год.\nне учитывать делетед\nплясать от лотов\nза все время\nза 2022 год",
+    "sql": "select ip_buy, _getProfSmartName23(ip_buy, true, false), count(*), sum(applied_commission)from (\nselect carl_auct._get_auct_leader_2(a.id_auction) ip_buy\n, a.applied_commission\n--        , carl_auct.getAuctCommission(_get_auct_id_prof_2(a.id_auction)\n--             , carl_auct._get_auct_leader_2(a.id_auction)\n--             , a.id_auction) commision\nfrom auction a\nwhere 2=2\nand a.status in ('SUCCESS', 'BUYNOW')\nand a.dt_end > to_date('01.01.2022','DD.MM.YYYY')\nand a.dt_end < to_date('01.01.2023','DD.MM.YYYY')\n-- and a.id_auction = 96503\n-- and carl_auct._get_auct_leader_2(a.id_auction) = 1076\n) s1\ngroup by ip_buy\n;"
+  },
+  {
+    "id": 12,
+    "kind": "note",
+    "source": "api/api_supp.sql:826",
+    "question": "Отчет - все ставки профиля\nНомер лота\tМарка\tМодель\tМодификация\tVIN\tПродавец\tПользователь\nСтавка\tАвтоставка\nСтатус ставки\tДата ставки",
+    "sql": "-- select * from repBuyerBids(192, ARRAY[]);\n-- select * from repBuyerBids(192, '[1,2043,777]'::json);\n-- SELECT repBuyerBids(253, '[6230,6919]'::json);"
+  },
+  {
+    "id": 13,
+    "kind": "skip",
+    "source": "api/api_supp.sql:894",
+    "question": "ALD \"Отчёт по торгам\"",
+    "sql": "select * from carl_auct.reportALD(102, null, null, null, null);\nselect * from carl_auct.reportALD(null, null, null, null, null);\nselect * from carl_auct.reportALD(\t102\n, extract (epoch from to_date('01.05.2023','DD.MM.YYYY'))::int\n, extract (epoch from to_date('30.04.2024','DD.MM.YYYY'))::int\n, null, null)\nwhere id_auction = 108993\n-- where vin = 'JTJBGMCA702051030'\n;"
+  },
+  {
+    "id": 14,
+    "kind": "skip",
+    "source": "api/api_supp.sql:1222",
+    "question": "Отчеты АРВАЛ\nдля профилей промо найти овнеров\nвзять их мэйлы\nвытащить домены и дистинктировать",
+    "sql": "select distinct lower(replace(u.email, split_part(u.email, '@', 1) || '@', ''))\nfrom profile p, users u\nwhere 2=2 --hasRole(p.id_profile,'buyer') = 'Y'\nand p.id_user_owner = u.id_user\nand (who_can_buy & 1048576) > 0\n;\nSELECT replace() split_part('user@example.com', '@', 1);\nselect * from who_can_buy wcb;"
+  },
+  {
+    "id": 15,
+    "kind": "skip",
+    "source": "supp/exec_2_supp.sql:3420",
+    "question": "детали продажи\nОбщий отчет по продажам. Включает в себя только лоты в статусе Success и Buynow",
+    "sql": "select a.id_auction\n  , carl_auct.getAuctObjAttrib(a.id_auction, 'reg_num') \"Plate\"\n--  , VIN\n  , getAuctObjAttrib(a.id_auction,'VIN') as VIN\n  , a.auction_type::varchar as Sales_Way\n  , case when a.auction_type = 'BUYNOW' then 'Yes' else 'No' end as BuyNow\n  , (select to_char(al.dt_set,'DD.MM.YYYY HH24:MI')::varchar\n        from auction_log al\n        where al.id_auction = a.id_auction and event_type in ('SUCCESS','BUYNOW','ACCEPT_OFFER') limit 1) SalesDate\n--  , va.summa_lead::int as Awarded_Price\n    , ab_lead.bid_value\n  , _getProfSmartName23(getAuctLeaderIdProf(a.id_auction), true, false) BuyerShortName\n--  , va.mark as Brand\n--  , va.model as Model\n  , getAuctObjAttrib(a.id_auction,'mark') as Brand\n  , getAuctObjAttrib(a.id_auction,'model') as Model\n  , to_char(a.dt_start,'DD.MM.YYYY HH24:MI') as Start_Time\n  , (select to_char(al.dt_set,'DD.MM.YYYY HH24:MI')\n        from auction_log al\n        where al.id_auction = a.id_auction and event_type in ('FINISHED','BUYNOW') limit 1) as End_Time\n  , (select bid_value\n        from auction_bid ab\n        where ab.id_auction = a.id_auction and ab.bid_status = 'OVERBID' order by bid_value desc limit 1 ) Second_Bid\n  , (select getProfSmartName2(carl_prof._get_id_profile(ab.id_user_profile))\n        from auction_bid ab\n        where ab.id_auction = a.id_auction and ab.bid_status = 'OVERBID' order by bid_value desc limit 1 ) Second_Bidder_Name\n--   , (select max(bid_value) from auction a2, obj_attrib_values oav, auction_bid ab\n--             where a2.id_object = oav.id_object\n--               and ab.id_auction = a2.id_auction\n-- \t\t      and oav.values#>'{properties}'->>'VIN' = getAuctObjAttrib(a.id_auction,'VIN')\n--               and carl_auct._get_auct_seller_id(a2.id_auction) = 19760) --p_id_profile)\n--         Highest_bid_All_Time\n  , (select max(bid_value) from auction a2, obj_attrib_values oav, auction_bid ab, user_profile up_sel2\n            where a2.id_object = oav.id_object\n              and ab.id_auction = a2.id_auction\n\t\t      and oav.values#>'{properties}'->>'VIN' = getAuctObjAttrib(a.id_auction,'VIN')\n              and a2.id_user_profile = up_sel2.id_user_profile and up_sel2.id_profile = 19760)\n              -- and carl_auct._get_auct_seller_id(a2.id_auction) = 19760) --p_id_profile)\n        Highest_bid_All_Time\n  from auction a\n-- … обрезано"
+  },
+  {
+    "id": 16,
+    "kind": "skip",
+    "source": "api/api_supp.sql:1438",
+    "question": "Отчет по ставкам 3",
+    "sql": ""
+  },
+  {
+    "id": 17,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:3613",
+    "question": "Общий анализ продаж по городам.\nВключаются лоты в статусах Success Buynow и Failed.\nГруппировка данных по полю List Name",
+    "sql": "select \"List Name\", to_char(\"Start Time\",'DD.MM.YYYY HH24:MI:SS') \"Start Time\"\n       , to_char(\"End Time\",'DD.MM.YYYY HH24:MI:SS') \"End Time\"\n       , \"Nr of Buyers\", \"Nr buyers viewed list\"\n       , \"Nr buyers viewed list\" / \"Nr of Buyers\" * 100\n       , \"Nr buyers with bids\"\n       , num_items \"Nr of Items\", sum_mileage / num_items \"Average mileage\", \"Total nr of bids\"\nfrom (\n    select _t.list_name \"List Name\"\n     , (select min(al.dt_set) from _t tt, auction_log al\n        where al.id_auction = tt.id_auction\n            and al.event_type = 'ACTIVE'\n            and tt.list_name = _t.list_name)                 \"Start Time\"\n     , (select max(al.dt_set) from _t tt, auction_log al\n        where al.id_auction = tt.id_auction\n            and al.event_type in ('FINISHED', 'BUYNOW', 'SUCCESS', 'FAILED')\n            and tt.list_name = _t.list_name)                 \"End Time\"\n    , (select max(cnt) from (\n        select count(*) as cnt\n        from _t tt, profile p where\n          _canProfBuy(p.id_profile, tt.id_auction)\n          and carl_prof.hasRole(p.id_profile,'buyer') = 'Y'\n          and p.status = 'ok'\n          and not isBlockedProf(p.id_profile)\n          and tt.list_name = _t.list_name\n        group by tt.id_auction, tt.list_name\n        ) s1)                                                       \"Nr of Buyers\"\n    , (select sum(a.n_views)\n        from _t tt, auction a where\n          tt.id_auction = a.id_auction\n          and tt.list_name = _t.list_name\n        group by tt.list_name\n    )                                                              \"Nr buyers viewed list\"\n    -- , \"Nr buyers viewed list\" / \"Nr of Buyers\" * 100\n    , (select count(*) from (\n        select carl_prof._get_id_profile(ab.id_user_profile)\n            from  auction_bid ab\n            where id_auction in (\n              select id_auction\n                from _t tt where tt.list_name = _t.list_name)\n            group by carl_prof._get_id_profile(ab.id_user_profile)\n-- … обрезано"
+  },
+  {
+    "id": 18,
+    "kind": "skip",
+    "source": "api/api_supp.sql:1840",
+    "question": "детали продажи\nОбщий отчет по несостоявшимся продажам. Включает в себя только лоты в статусе Failed",
+    "sql": ""
+  },
+  {
+    "id": 19,
+    "kind": "note",
+    "source": "api/api_supp.sql:2392",
+    "question": "Кол-во лотов выставленных на торги, v1\nКол-во лотов проданных, v2\nкол-во байеров юров на конец месяца, v3\nКол-во активных баеров юров в этом месяце (те кто делали ставки), v4\nкол-во байеров физов на конец месяца, v5\nКол-во активных баеров физов в этом месяце (те кто делали ставки), v6\nкол-во селлеров на конец месяце, v7\nкол-во селлеров активных (тех кто выставляли на торги в месяце) v8\nРасслоить байеров на физов и юров",
+    "sql": "-- select * from carl_comm.getS1();"
+  },
+  {
+    "id": 20,
+    "kind": "skip",
+    "source": "api/api_supp.sql:2663",
+    "question": "Успехи и неудачи продажных продавцов",
+    "sql": "-- select * from getSalesAtPeriod(interval '13 week');"
+  },
+  {
+    "id": 21,
+    "kind": "note",
+    "source": "api/api_supp.sql:5008",
+    "question": "Количество единиц продано / Количество единиц выставлено (без перевыставлений)\nза период с p_dt_start по p_dt_end\n, по продавцам",
+    "sql": "-- select * from carl_auct.repSellerAproveRate(extract( epoch from to_date('15.07.2018', 'DD.MM.YYYY'))::int\n--     , extract( epoch from to_date('15.07.2019', 'DD.MM.YYYY'))::int)\n-- union all\n-- select 'Итого:', sum(suc), sum(nosuc), sum(suc) / (sum(suc) + sum(nosuc))  from\n--   (select suc, nosuc from carl_auct.repSellerAproveRate(extract( epoch from to_date('15.07.2018', 'DD.MM.YYYY'))::int\n--     , extract( epoch from to_date('15.07.2019', 'DD.MM.YYYY'))::int)) r;"
+  },
+  {
+    "id": 22,
+    "kind": "note",
+    "source": "api/api_supp.sql:5064",
+    "question": "Количество продаж на прошлой неделе\nза период с p_dt_start по p_dt_end\n, по продавцам",
+    "sql": "-- select * from repSellerAproveRate(extract( epoch from to_date('15.07.2018', 'DD.MM.YYYY'))::int\n-- , extract( epoch from to_date('15.07.2019', 'DD.MM.YYYY'))::int);"
+  },
+  {
+    "id": 23,
+    "kind": "note",
+    "source": "api/api_supp.sql:5080",
+    "question": "Количество продаж на прошлой неделе начиная от сегодня",
+    "sql": "-- select carl_auct.salesPreviousWeek();\n-- select date_trunc('day',dt_change_status) --, count(*)\n-- from auction a\n-- where status in ('SUCCESS', 'BUYNOW')\n--         and is_deleted = 'N'\n-- --        and date_trunc('week', dt_change_status) = date_trunc('week', CURRENT_DATE) - interval '1 week'\n--          and date_trunc('day',dt_change_status) >=  to_date('11.11.2024', 'DD.MM.YYYY')\n--          and date_trunc('day',dt_change_status) <=  to_date('17.11.2024', 'DD.MM.YYYY')\n--     order by date_trunc('day',dt_change_status)\n-- ;"
+  },
+  {
+    "id": 24,
+    "kind": "skip",
+    "source": "api/api_supp.sql:5575",
+    "question": "АЛД. Добавить новый Отчет по покупателям",
+    "sql": "-- select * from repBuyersbySellerProfile(102)\n-- select _SellerAuctionNViewdByBuyer(102,126)"
+  },
+  {
+    "id": 25,
+    "kind": "skip",
+    "source": "api/api_supp.sql:6416",
+    "question": "ALD Отчет по покупателям",
+    "sql": "--    select * from repALDBuyers('01.02.2023', '01.03.2023');\n--    select * from repALDBuyers('01.06.2023', '01.07.2023');"
+  },
+  {
+    "id": 26,
+    "kind": "skip",
+    "source": "api/api_amo.sql:2380",
+    "question": "Надо сделать функцию, которая будет принимать таймстемп или ничего, если можно дату внутри посчитать.\nВозвращать надо профили продавцов с количество созданных лотов за предыдущие 6 месяцев, т.е. например вызов идет 01.10, значит надо считать количество в месяцах 04-09.\nStatus=OK + Roles=Seller + NotDeleted\nЕще надо добавить в вывод дату последнего создания лота, если она есть, id_prof_categ_sel, форму собственности и название. Т.е. надо получить что-то типа:\n[\n{\nid_profile: 1,\nid_prof_categ_sel: string,\nlast_start_date: date|string|null\nownership_type: string,\nname: string,\nlots: []\n}\n]\nlots - тут структура на твое усмотрение, вообще надо 3 среза  - прыдущий месяц, предыдущие 3, предыдущие 4-6 месяцы. Но можно и просто по каждому месяцу количество сделать, дальше я сам посчитаю, как тебе удобнее и быстрее будет. Желательно, конечно, это сегодня сделать, что бы у меня было время потестить. Отдел продаж хочет запустить эту штуку 15 числа уже.\n;",
+    "sql": "-- select carl_amo.getSellerExpoStats()\ncreate or replace function carl_amo.getSellerExpoStats()\n    RETURNS JSONB  security definer as $F$\nSELECT jsonb_agg(\n        jsonb_build_object(\n                'id_profile', id_profile,\n                'id_user', id_user_owner,\n                'id_prof_categ_sel', id_prof_categ_sel,\n                'last_start_date', last_start_date,\n                'name', name,\n                'ownership_type', ownership_type,\n                'prof_categ_name', prof_categ_name,\n                'lots', lots\n        )\n        ORDER BY id_profile, id_user_owner, id_prof_categ_sel, name\n       ) AS profiles\nFROM (\n    SELECT\n        id_profile,\n        id_user_owner,\n        id_prof_categ_sel,\n        MAX(last_start_date) AS last_start_date,\n        name,\n        ownership_type,\n        prof_categ_name,\n        jsonb_agg(\n                jsonb_build_object(\n                        'month_ago', month_ago,\n                        'lots', record_count\n                )\n                ORDER BY month_ago\n        ) AS lots\n    FROM (\n        SELECT\n            p.id_profile,\n            p.id_user_owner,\n            p.id_prof_categ_sel,\n            getProfSmartName2(p.id_profile) AS name,\n            pcd.name AS prof_categ_name,\n            CASE\n-- … обрезано"
+  },
+  {
+    "id": 27,
+    "kind": "note",
+    "source": "api/api_anal.sql:486",
+    "question": "Кто делал ставки на аукцион кто смотрел аукцион",
+    "sql": "-- select * from carl_an.v_auct_bids_an where user_bid is not null order by id_auction desc limit 100;\n-- select * from carl_an.v_auct_views_an  offset 1000 limit 100;;\n-- select * from carl_an.v_auct_bids_an where id_auction = 138817 offset 1000 limit 100;\n-- select * from carl_an.v_auct_views_an  where id_auction = 138817 offset 1000 limit 100;;\n-- select * from auction_nview av where id_auction = 138817;"
+  },
+  {
+    "id": 28,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:9",
+    "question": "Сформировать выгрузку данных проданных ТС (в статусе Success и Buy Now)\nпо месяцам в период сянваря по март 2023 года\n, с указанием средней комиссии покупателя по категориям транспортных средств\n: легковые ТС, легкий коммерческий транспорт, грузовые ТС, специальная техника",
+    "sql": "select to_char(date_trunc('month', a.dt_end), 'MM.YYYY') as month\n        , ot.id_object_type_top\n        , (select name from object_type where  id_object_type = ot.id_object_type_top) as name\n        , count(*) as cnt\n        , sum(a.applied_commission) as sum_commision\n        , sum(a.applied_commission)/count(*) as average_commision\nfrom auction a, object oo, object_type ot\nwhere a.id_object = oo.id_object\n    and oo.id_object_type = ot.id_object_type\n    and status in ('SUCCESS', 'BUYNOW')\n    and is_deleted = 'N'\n    and dt_end >= to_date('01.01.2023','DD.MM.YYYY')\n    and dt_end < to_date('01.04.2023','DD.MM.YYYY')\ngroup by\n         date_trunc('month', a.dt_end)\n        , ot.id_object_type_top\norder by date_trunc('month', a.dt_end), id_object_type_top\n;\nselect id_object_type_parent from object_type group by id_object_type_parent;\n\nselect id_object_type\n       , id_object_type_top\n       , _getobjtypetopparentj(id_object_type) ->> 'id'\n       , _getobjtypetopparentj(id_object_type) ->> 'name'  from object_type\n    where id_object_type in (11,8);\n\nselect * from object_type where id_object_type_parent is null;\nselect * from object_type where id_object_type in (11,8);\nselect * from object;\nselect menu_parent_object_type from auction;\nSELECT col_description('auction'::regclass, 'status');\n\nselect carl_obj._calcObjTypeTop(11, 1);\nselect carl_obj._calcObjTypeTop(8);\nselect carl_obj.getObjTypeTopParent(11);\nselect carl_obj._calcObjTypeTop(11);\nselect carl_obj._calcObjTypeTop(8);"
+  },
+  {
+    "id": 29,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:85",
+    "question": "по покупателям (ЮЛ и ФЛ) с платформы, которые были зарегистрированы\nв период с 1 января 2022 года по 30 апреля 2022 года\nс датой регистрации\nи количеством сделанных ставок\nи осуществленных покупок.",
+    "sql": "select p.id_profile\n  , getprofsmartname2(p.id_profile)\n  , to_char(p.dt_create,'DD.MM.YYYY') registered\n  , case when p.id_company is null then true else false end as is_phys\n  , (select count(*) from auction_log al where p.id_profile = al.id_profile\n        and event_type in ('MAKE_BID','SET_PROXY','BUYNOW')\n        group by p.id_profile) num_bids\n  , (select\n      count(*)                      --as cnt,\n      from auction a, auction_bid ab, user_profile up, profile p2\n      where p2.id_profile = up.id_profile\n            and up.id_user_profile = ab.id_user_profile\n            and a.id_auction = ab.id_auction\n            and ab.bid_status = 'LEAD'\n            and a.status in ('SUCCESS','BUYNOW')\n            and a.is_deleted = 'N'\n            and ab.is_deleted = 'N'\n            and p2.id_profile = p.id_profile\n            and p2.is_deleted = 'N'\n            --and a.dt_end >= current_timestamp - interval '6 month' -- to_timestamp('01.01.2020', 'DD.MM.YYYY')\n            --and a.dt_end <= to_timestamp('29.02.2020', 'DD.MM.YYYY')\n            --and a.dt_end >= to_timestamp('01.03.2020', 'DD.MM.YYYY')\n            --and a.dt_end <= to_timestamp('18.03.2020', 'DD.MM.YYYY')\n        group by p2.id_profile) num_buys\n  from profile p\n  where status = 'ok'::en_prof_status\n    and p.is_deleted = 'N'\n    and hasRole(p.id_profile, 'buyer') = 'Y'\n    and p.dt_create  >= to_date('01.01.2022','DD.MM.YYYY')\n    and p.dt_create < to_date('01.05.2022','DD.MM.YYYY')\n  --group by id_profile\n;"
+  },
+  {
+    "id": 30,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:199",
+    "question": "Покупатели (физ и юр), по Калининграду и Калининградской области",
+    "sql": "select  p.id_profile\n       , p.id_individual is not null as phys\n       , getprofsmartname3(p.id_profile) as name\n       , (select phone||' '||email from users where id_user = p.id_user_owner) as owner_phone_email\n       , address_short\n    from profile p\n    where address_short ilike '%Калинин%'\n    order by phys\n;"
+  },
+  {
+    "id": 31,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:213",
+    "question": "Список всех профилей которые ставили на машины из Калиниграда",
+    "sql": "select al.id_profile, getprofsmartname2(al.id_profile) as name -- , oav.values#>>'{properties, location}'\n  from auction_log al, obj_attrib_values oav, auction a\n  where oav.id_object = a.id_object\n        and a.id_auction = al.id_auction\n        -- and dt_set >= to_timestamp('01.01.2019', 'DD.MM.YYYY')\n        and al.event_type in ('MAKE_BID', 'AUTO_BID', 'SET_PROXY', 'BUYNOW')\n        and a.is_deleted = 'N'\n        and oav.values#>>'{properties, location}' ilike '%калинин%'\n        -- and not carl_prof._is_individual(id_profile)\n        --and id_profile = 918\n  group by al.id_profile\n  order by al.id_profile\n;"
+  },
+  {
+    "id": 32,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:230",
+    "question": "3) Пользователи Рольф сколько из них сделали хотя бы один осмотр\n407",
+    "sql": "select u.id_user, getusersmartname(u.id_user)\n  from organ o, user_organ uo, users u, user_role ur, role r\n    , inspect_report ir\n  where\n    uo.id_organ = o.id_organ\n    and uo.id_user = u.id_user\n    and ur.id_organ = o.id_organ and ur.id_user = u.id_user\n    and r.id_role = ur.id_role\n    and ir.id_user = u.id_user\n    and o.id_group = 1\n    and u.is_deleted = 'N'\n    and not uo.deleted\n    group by u.id_user\n    -- order by o.id_organ, r.name, u.id_user\n;"
+  },
+  {
+    "id": 33,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:252",
+    "question": "2) Пользователи Рольф - сколько из низ хотя бы раз логинились\n619\n652",
+    "sql": "select u.id_user, getusersmartname(u.id_user)\n  from organ o, user_organ uo, users u, user_role ur, role r, user_login ul\n  where\n    uo.id_organ = o.id_organ\n    and uo.id_user = u.id_user\n    and ur.id_organ = o.id_organ and ur.id_user = u.id_user\n    and r.id_role = ur.id_role\n    and ul.id_user = u.id_user\n    and o.id_group = 1\n    and u.is_deleted = 'N'\n    and not uo.deleted\n    group by u.id_user\n    -- order by o.id_organ, r.name, u.id_user\n;"
+  },
+  {
+    "id": 34,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:292",
+    "question": "список пользователей Рольфа",
+    "sql": "select u.id_user\n       , u.last_name\n       , u.first_name\n       , u.middle_name\n       , u.email\n       , u.phone\n       , r.name\n       , o.id_organ\n       , o.name\n       , to_char(date_trunc('day', u.dt_created), 'DD.MM.YYYY') dt_register\n        from organ o, user_organ uo, users u, user_role ur, role r\n        where uo.id_organ = o.id_organ and uo.id_user = u.id_user and ur.id_organ = o.id_organ and\n            ur.id_user = u.id_user and r.id_role = ur.id_role\n            and o.id_group = 1 and u.is_deleted = 'N'\n            and not uo.deleted\n            -- and u.dt_created >= to_date('01.12.2021', 'DD.MM.YYYY')\n            -- and u.dt_created < to_date('01.06.2022', 'DD.MM.YYYY')\n        group by u.id_user\n              , o.id_organ, o.name, r.name\n        order by id_user\n;"
+  },
+  {
+    "id": 35,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:319",
+    "question": "сколько пользователей (уникальных) Рольфа было зарегестрировано в сисистеме\nна конец\nдекабря - 795\nянваря  - 823\nфевраля - 900\nмарта   - 887\nапреля  - 1045\nмая     - 1101",
+    "sql": "select to_char(dt2, 'MM.YYYY'), sum from (\nselect dt as dt2\n    , sum(cnt) over (order by dt) as sum\n    from (\n    select date_trunc('month', dt) dt\n           , -- , sum(sum_cnt) over (partition by dt)\n        count(*) cnt\n    from (\n        select u.id_user, getusersmartname(u.id_user), date_trunc('month', u.dt_created) dt\n        from organ o, user_organ uo, users u, user_role ur, role r\n        where uo.id_organ = o.id_organ and uo.id_user = u.id_user and ur.id_organ = o.id_organ and\n            ur.id_user = u.id_user and r.id_role = ur.id_role and o.id_group = 1 and u.is_deleted = 'N' and\n            not uo.deleted\n            -- and u.dt_created >= to_date('01.12.2021', 'DD.MM.YYYY')\n            -- and u.dt_created < to_date('01.06.2022', 'DD.MM.YYYY')\n        group by u.id_user\n    ) s1\n    group by dt\n) s2\n        ) s3\n    where dt2 >= to_date('01.12.2021', 'DD.MM.YYYY')\n    order by dt2 desc\n;"
+  },
+  {
+    "id": 36,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:354",
+    "question": "сколько пользователей Рольфа было зарегестрировано в сисистеме\nна конец\nдекабря - 795\nянваря  - 823\nфевраля - 900\nмарта   - 887\nапреля  - 1045\nмая     - 1101\nиюня    - 1116",
+    "sql": "select u.id_user, getusersmartname(u.id_user) -- u.dt_created\n  from organ o, user_organ uo, users u, user_role ur, role r\n  where\n    uo.id_organ = o.id_organ\n    and uo.id_user = u.id_user\n    and ur.id_organ = o.id_organ and ur.id_user = u.id_user\n    and r.id_role = ur.id_role\n    and o.id_group = 1\n    and u.is_deleted = 'N'\n    and not uo.deleted\n    -- and u.dt_created < to_date('01.01.2022','DD.MM.YYYY')\n    -- and u.dt_created < to_date('01.02.2022','DD.MM.YYYY')\n    -- and u.dt_created < to_date('01.03.2022','DD.MM.YYYY')\n    -- and u.dt_created < to_date('01.04.2022','DD.MM.YYYY')\n    -- and u.dt_created < to_date('01.05.2022','DD.MM.YYYY')\n    -- and u.dt_created < to_date('01.06.2022','DD.MM.YYYY')\n    and u.dt_created < to_date('01.07.2022','DD.MM.YYYY')\n    group by u.id_user\n    -- order by o.id_organ, r.name, u.id_user\n;"
+  },
+  {
+    "id": 37,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:388",
+    "question": "Количество профилей, купивших спецтехнику и грузовые (отдельно) за 20 и 21 год\nгрузовые",
+    "sql": "3, 5, 6, 8 top\n-- спецтехника\n4, 14 top"
+  },
+  {
+    "id": 38,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:480",
+    "question": "Випы не купившие ни одной точка за последние 6 месяцев",
+    "sql": "select p.id_profile\n  , getprofsmartname3(p.id_profile) as name\n  , (select phone||' '||email from users where id_user = p.id_user_owner) as owner_phone_email\n  , getProfWhoCanBuy(p.id_profile) as wcb\n  , (select name from who_can_buy where bit_code = getProfWhoCanBuy(p.id_profile))\n  --, getPurshes(p.id_profile) as cnt\n  from profile p where is_vip = 'Y'\n  and hasRole(p.id_profile, 'buyer') = 'Y'\n  and getPurshes(p.id_profile) is null\n  and p.is_deleted = 'N'\n  order by id_profile\n  --and id_profile = 1450\n;\n\nselect * from carl_auct.getBuyersCompStat1() where id_profile = 202;\n1450"
+  },
+  {
+    "id": 39,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:501",
+    "question": "Кол-во покупок профиля за последние 6 месяцев",
+    "sql": "-- select getPurshes(1450);"
+  },
+  {
+    "id": 40,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:528",
+    "question": "Кол-во покупок профиля",
+    "sql": "-- select getPurshes(1450);"
+  },
+  {
+    "id": 41,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:605",
+    "question": "Кто и когда смотрел лот",
+    "sql": "select id_profile, getProfsmartname2(id_profile) who_see, dt_set, ip\n  from auction_nview an\n  where id_auction = 34714\n  order by id_auction_nview\n;"
+  },
+  {
+    "id": 42,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:627",
+    "question": "Количество единиц куплено, юрик или физик\nпо месяцам\n, разбивка по типам (OFFER/все остальные)",
+    "sql": "--select sum(cnt) from (\n  select\n    -- to_char(date_trunc('month', a.dt_end), 'MM.YYYY')\n    up.id_profile,\n    getprofsmartname3(id_profile) as name,\n    count(*)                      as cnt,\n    _is_individual(up.id_profile)\n  from auction a, auction_bid ab, user_profile up\n  where up.id_user_profile = ab.id_user_profile\n        and a.id_auction = ab.id_auction\n        and ab.bid_status = 'LEAD'\n        -- and a.status in ('SUCCESS')\n        and a.status in ('SUCCESS','BUYNOW')\n        --and up.is_deleted = 'N'\n        and a.is_deleted = 'N'\n        and ab.is_deleted = 'N'\n        --and a.dt_end >= to_timestamp('01.01.2020', 'DD.MM.YYYY')\n        --and a.dt_end <= to_timestamp('29.02.2020', 'DD.MM.YYYY')\n        and a.dt_end >= to_timestamp('01.03.2020', 'DD.MM.YYYY')\n        and a.dt_end <= to_timestamp('18.03.2020', 'DD.MM.YYYY')\n  group by up.id_profile --, date_trunc('month', a.dt_end), auct_type\n  order by cnt desc\n--) s\n;"
+  },
+  {
+    "id": 43,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:659",
+    "question": "на сколько лотов юрик делал ставки с 1 января 2019",
+    "sql": "with u as\n(select id_profile, getprofsmartname3(id_profile) as name, count(*) cnt from (\n  select\n    id_profile,\n    id_auction\n  from auction_log\n  where 2=2\n        --and dt_set >= to_timestamp('01.01.2020', 'DD.MM.YYYY')\n        --and dt_set <= to_timestamp('29.02.2020', 'DD.MM.YYYY')\n        and dt_set >= to_timestamp('01.03.2020', 'DD.MM.YYYY')\n        and dt_set <= to_timestamp('18.03.2020', 'DD.MM.YYYY')\n        and event_type in ('MAKE_BID', 'AUTO_BID'/*, 'SET_PROXY'*/, 'BUYNOW')\n        and is_deleted = 'N'\n        --and not carl_prof._is_individual(id_profile)\n        --and id_profile = 1491\n  group by id_auction, id_profile\n) r group by id_profile )\n\n  select u.id_profile, u.name, u.cnt, _is_individual(id_profile) as individual from u\n  order by cnt desc\n--   union all\n--   select p2.id_profile, getprofsmartname3(p2.id_profile), 0 from profile p2\n--     where p2.id_profile not in (select u.id_profile from u)\n--         and p2.is_deleted = 'N'\n--         and hasRole(p2.id_profile, 'buyer') = 'Y'\n--         -- and not carl_prof._is_individual(p2.id_profile)\n  ;\n\n  select\n    id_profile,\n    dt_set,\n    id_auction\n  from auction_log\n  where 2=2\n        and dt_set >= to_timestamp('01.03.2019', 'DD.MM.YYYY')\n        and dt_set <= to_timestamp('17.03.2020', 'DD.MM.YYYY')\n        --dt_set >= to_timestamp('01.01.2019', 'DD.MM.YYYY')\n        --and dt_set <= to_timestamp('29.01.2019', 'DD.MM.YYYY')\n        and event_type in ('MAKE_BID', 'AUTO_BID'/*, 'SET_PROXY'*/, 'BUYNOW')\n        and is_deleted = 'N'\n-- … обрезано"
+  },
+  {
+    "id": 44,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:771",
+    "question": "За период с 1.06 по 30.10 (по месячно):\nПо продавцам:\n1. Экспозиции\n2. Продажи\n3. Выручка от продажи (продажи * на комиссию, не забудь учесть кто победил, физ или юр)select * from v_commision_by_month;",
+    "sql": "-- select profile, sum(sum) from v_commision_by_month group by profile order by sum desc;"
+  },
+  {
+    "id": 45,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1028",
+    "question": "Количество продаж по месяцам(с  01.01.2018 по 01.06.2019 )\n, по продавцам, по типам",
+    "sql": "select to_char(date_trunc('month', dt_end), 'MM.YYYY') as month\n  , getProfSmartName2(carl_auct._get_auct_id_prof(a.id_auction)) as prof_name\n  , a.auction_type\n  , count(*) as cnt\n  from auction a\n  where status in ('SUCCESS', 'BUYNOW')\n    and is_deleted = 'N'\n    and dt_end >= to_date('01.01.2018','DD.MM.YYYY')\n    and dt_end <= to_date('01.06.2019','DD.MM.YYYY')\n  group by carl_auct._get_auct_id_prof(a.id_auction)\n    , date_trunc('month', dt_end)\n    , a.auction_type\n  order by date_trunc('month', dt_end), cnt\n;"
+  },
+  {
+    "id": 46,
+    "kind": "skip",
+    "source": "supp/exec_1_supp.sql:1050",
+    "question": "покупаны id_профиля, имя_профиля, мэйл",
+    "sql": "select id_profile\n  , getProfsmartname2(id_profile)\n  , carl_auth.getUserEmail(p.id_user_owner) as email\n  from profile p where\n    id_company is not null\n    and carl_prof.hasRole(p.id_profile,'buyer') = 'Y'\n    and status = 'ok'\n    and is_deleted = 'N'\n  order by id_profile\n;"
+  },
+  {
+    "id": 47,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1182",
+    "question": "Кто кому сколько продал",
+    "sql": "select\n     carl_auct._get_auct_id_prof(a.id_auction) as id_seller\n    , getProfSmartName2(carl_auct._get_auct_id_prof(a.id_auction))\n    -- , up.id_profile\n    , case when getProfSmartName2(up.id_profile) is not null\n        then getProfSmartName2(up.id_profile)\n        else _getFioIndividual(up.id_profile) end as name\n    , count(*) as purchase\n    from auction a, auction_bid ab, user_profile up\n    where up.id_user_profile = ab.id_user_profile\n      and a.id_auction = ab.id_auction\n      and ab.bid_status = 'LEAD'\n      and a.status = 'SUCCESS'\n      and up.is_deleted = 'N'\n      and a.is_deleted = 'N'\n      and ab.is_deleted = 'N'\n      --and ab.dt_set > current_timestamp - interval '6 month'\n    group by id_seller, up.id_profile\n    order by id_seller, up.id_profile\n;"
+  },
+  {
+    "id": 48,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1292",
+    "question": "кол-во юзеров зарегеных в день",
+    "sql": "select   to_char(date_trunc('day', u.dt_created), 'DD.MM.YYYY') as month\n    , sum(1)  new_users\n  from users u\n  where 1 = 1\n        and u.is_deleted = 'N'\n    and dt_created > to_timestamp('01.08.2019','DD.MM.YYYY')\n    and dt_created < to_timestamp('01.09.2020','DD.MM.YYYY')\n  group by date_trunc('day', u.dt_created)\n  order by date_trunc('day', u.dt_created)\n;"
+  },
+  {
+    "id": 49,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1307",
+    "question": "Кол-во просмотров лотов Порше профилями\nс разбивкой по лотам",
+    "sql": "select id_auction, getProfsmartname2(id_profile), count(*)  from auction_nview an where\n  id_auction in (\n    select id_auction from auction where who_can_buy & 16 > 0\n      group by id_auction)\n  group by id_auction, id_profile\n  order by id_auction, id_profile\n;"
+  },
+  {
+    "id": 50,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1320",
+    "question": "Кол-во просмотров лотов Порше профилями",
+    "sql": "select getProfsmartname2(id_profile), count(*)  from auction_nview an where\n  id_auction in (\n    select id_auction from auction where who_can_buy & 16 > 0\n      group by id_auction)\n  group by id_profile\n;"
+  },
+  {
+    "id": 51,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1331",
+    "question": "Кол-во просмотров лотов Порше пользователями",
+    "sql": "select u.id_user, getusersmartname(u.id_user), count(*)  from auction_nview an, users u where an.id_user = u.id_user\n  and id_auction in (\n    select id_auction from auction where who_can_buy & 16 > 0\n      group by id_auction)\n  group by u.id_user\n;"
+  },
+  {
+    "id": 52,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1342",
+    "question": "Кол-во просмотров лотов BMW пользователями",
+    "sql": "select id_auction, id_profile, getProfsmartname2(an.id_profile), count(*)\n  from auction_nview an\n    where\n      _is_admin(id_user) <> 'Y'\n      and an.id_auction in (\n    select id_auction from auction where\n      ((who_can_buy & 4 > 0) or (who_can_buy & 8 > 0))\n      and dt_end > to_date('19.02.2020','DD.MM.YYYY')\n      --and dt_end <= to_date('20.09.2019','DD.MM.YYYY')\n      group by id_auction)\n  group by an.id_auction, an.id_profile\n  order by id_auction\n;\n\nselect * from auction_nview an\n    where\n      _is_admin(id_user) <> 'Y' and id_auction = 19809;"
+  },
+  {
+    "id": 53,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:1364",
+    "question": "ИП и физики у которых buyer и  < 30000 на балансе",
+    "sql": "select id_profile\n  , case when s1.id_company is not null then getprofsmartname2(s1.id_profile) else\n   _getFioIndividual(s1.id_profile)\n  end\n  , is_vip\n  , locked\n  from (\n    select distinct p.id_profile, p.id_company, p.id_individual, is_vip\n      , coalesce((parameters#>>'{lock,locked}')::boolean,false) as locked\n      from profile p, company c\n      where 1 = 1\n            and p.id_individual is null\n            and (p.id_company is null or\n                 (c.id_company = p.id_company and p.id_company is not null and c.ownership_type = 'ИП'))\n            and carl_prof.hasRole(p.id_profile, 'buyer') = 'Y'\n            and p.balance_summ + p.balance_reserv < 30000\n            and p.is_deleted = 'N'\n  ) s1\n  order by id_profile\n;"
+  },
+  {
+    "id": 54,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:1389",
+    "question": "по месяцам сколько зарегилось (по дате регистрации)\nи сколько дошли до signed(создали профиль)",
+    "sql": "select month, new_users, signed_users, round(signed_users*1./(new_users),3)*100 as percent from (\n  select   to_char(date_trunc('month', u.dt_created), 'MM.YYYY') as month\n    , sum(1)  new_users\n    , sum(case when p.status in ('ok','signed')\n       then 1\n         else 0 end)           signed_users\n  from users u\n    left join user_profile up on u.id_user = up.id_user\n    left join profile p on up.id_profile = p.id_profile\n  where 1 = 1\n        and u.is_deleted = 'N'\n  group by date_trunc('month', u.dt_created)\n  order by date_trunc('month', u.dt_created)\n) s1\n;"
+  },
+  {
+    "id": 55,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:1410",
+    "question": "по месяцам сколько зарегилось (по дате регистрации)\nи сколько дошли до ок",
+    "sql": "select month, new_users, ok_users, round(ok_users*1./(new_users),3)*100 as percent from (\n  select   to_char(date_trunc('month', u.dt_created), 'MM.YYYY') as month\n    , sum(1)  new_users\n    , sum(case when p.status = 'ok'\n       then 1\n         else 0 end)           ok_users\n  from users u\n    left join user_profile up on u.id_user = up.id_user\n    left join profile p on up.id_profile = p.id_profile\n  where 1 = 1\n        and u.is_deleted = 'N'\n  group by date_trunc('month', u.dt_created)\n  order by date_trunc('month', u.dt_created)\n) s1\n;"
+  },
+  {
+    "id": 56,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1433",
+    "question": "Количество единиц продано / Количество единиц выставлено (без перевыставлений (?!))\nпо месяцам\n, разбивка по типам (OFFER/все остальные)\nпо компаниям (ИНН)",
+    "sql": "select\n   to_char(dt_month, 'MM.YYYY') as month\n  , prof_name, inn\n  , auct_type, sum(suc) as success, sum(nosuc) as failed\n    from (\n  select\n    dt_month,\n    type,\n    auct_type,\n    suc,\n    nosuc\n    , prof_name\n    , inn\n  from\n    (\n      select\n        case when a.auction_type in ('OPEN', 'BUYNOW') then 'OPEN' else 'OFFER' end as auct_type,\n        date_trunc('month', dt_start) as dt_month,\n        a.auction_type                                  as type,\n        sum(case when a.status in ('SUCCESS', 'BUYNOW')\n          then 1\n            else 0 end)                                 as suc,\n        sum(case when a.status in ('FAILED')\n          then 1\n            else 0 end)                                 as nosuc,\n        getProfSmartName2(carl_auct._get_auct_id_prof(a.id_auction)) as prof_name\n        , c.inn\n      from auction a, user_profile up, profile p, company c\n      where a.id_user_profile = up.id_user_profile\n            and p.id_profile = up.id_profile\n            and p.id_company = c.id_company\n            and a.status in ('SUCCESS', 'BUYNOW', 'FAILED')\n            and a.is_deleted = 'N'\n            --and dt_start >= to_date('03.09.2018', 'DD.MM.YYYY')\n            --and dt_start <= to_date('03.09.2019', 'DD.MM.YYYY')\n            and (is_archive = 'N' or is_archive is null)\n      group by carl_auct._get_auct_id_prof(a.id_auction)\n        , date_trunc('month', dt_start)\n        , a.auction_type\n        , c.inn\n-- … обрезано"
+  },
+  {
+    "id": 57,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1486",
+    "question": "кол-во покупателей и продавцов по месяцам с 01.01.18",
+    "sql": "--select sum(new_buyers), sum(new_sellers) from (\n  select\n    to_char(date_trunc('month', p.dt_create), 'DD.MM.YYYY')\n    --, getProfSmartName2(p.id_auction)\n    ,\n    _is_company(p.id_profile) is_company,\n    sum(case when hasRole(p.id_profile, 'buyer') = 'Y'\n      then 1\n        else 0 end)           new_buyers,\n    sum(case when hasRole(p.id_profile, 'seller') = 'Y'\n      then 1\n        else 0 end)           new_sellers\n  from profile p\n  where 1 = 1\n        and status = 'ok'\n        and p.is_deleted = 'N'\n  group by date_trunc('month', p.dt_create), _is_company(p.id_profile)\n  order by date_trunc('month', p.dt_create), _is_company(p.id_profile)\n--) s1\n;"
+  },
+  {
+    "id": 58,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1511",
+    "question": "Количество единиц продано / Количество единиц выставлено (без перевыставлений (?!))\nпо месяцам(с  01.01.2018 по 01.06.2019 )\n, по продавцам, по типам",
+    "sql": "select ip, month, prof_name, type, suc, nosuc, round(suc*1./(suc+nosuc), 3) from\n  (\n  select\n    carl_auct._get_auct_id_prof(a.id_auction) ip,\n    to_char(date_trunc('month', dt_end), 'MM.YYYY')              as month,\n    getProfSmartName2(carl_auct._get_auct_id_prof(a.id_auction)) as prof_name,\n    a.auction_type                                               as type,\n    sum(case when status in ('SUCCESS', 'BUYNOW')\n      then 1\n        else 0 end)                                              as suc,\n    sum(case when status in ('FAILED')\n      then 1\n        else 0 end)                                              as nosuc\n  from auction a\n  where status in ('SUCCESS', 'BUYNOW', 'FAILED')\n        and is_deleted = 'N'\n        and dt_end >= to_date('03.09.2018', 'DD.MM.YYYY')\n        and dt_end <= to_date('03.09.2019', 'DD.MM.YYYY')\n        and carl_auct._get_auct_id_prof(a.id_auction) is not null\n        and (is_archive = 'N' or is_archive is null)\n  group by carl_auct._get_auct_id_prof(a.id_auction)\n    , date_trunc('month', dt_end)\n    , a.auction_type\n  order by date_trunc('month', dt_end), prof_name\n) s1 where ip = 205\n;"
+  },
+  {
+    "id": 59,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:1577",
+    "question": "1) Список уникальных городов откуда тачки (всего без учета статусов)",
+    "sql": "select oav.values#>>'{properties, location}' as city from obj_attrib_values oav, auction a\n  where oav.id_object = a.id_object\n    and a.is_deleted = 'N'\ngroup by city\n;"
+  },
+  {
+    "id": 60,
+    "kind": "letter",
+    "source": "supp/exec_1_supp.sql:1584",
+    "question": "2) Список городов покупателей (роль buyer), есть только у юриков",
+    "sql": "select ct.name as city from profile p, city ct --, company c\n  where 1=1 -- p.id_company = c.id_company\n    and ct.id_city = p.id_city\n    and hasRole(p.id_profile,'buyer') = 'Y'\n    and p.is_deleted = 'N'\n    and p.status = 'ok'\n  group by city\n;"
+  },
+  {
+    "id": 61,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1643",
+    "question": "Количество продаж по месяцам(с  01.01.2018 по 01.06.2019 )\n, по продавцам, по типам\nС КОМИССИЯМИ",
+    "sql": "select to_char(date_trunc('month', dt_end), 'MM.YYYY') as month\n  , getProfSmartName2(carl_auct._get_auct_id_prof(a.id_auction)) as prof_name\n  , a.auction_type\n  , count(*) as cnt\n  , sum(case when _is_company(getAuctLeaderIdProf(a.id_auction))\n      then\n        carl_auct.getAuctCommission(carl_prof._get_id_profile(a.id_user_profile), 0, a.id_auction)\n      else\n        carl_auct.getAuctCommission(carl_prof._get_id_profile(a.id_user_profile), -1, a.id_auction)\n        end) as comission\n  from auction a\n  where status in ('SUCCESS', 'BUYNOW')\n    and is_deleted = 'N'\n    and dt_end >= to_date('01.01.2018','DD.MM.YYYY')\n    and dt_end <= to_date('01.06.2019','DD.MM.YYYY')\n  group by carl_auct._get_auct_id_prof(a.id_auction)\n    , date_trunc('month', dt_end)\n    , a.auction_type\n  order by date_trunc('month', dt_end), cnt\n;"
+  },
+  {
+    "id": 62,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1798",
+    "question": "2. Количество продаж - 1780 - 13.08.2018-13.08.2019,  1476 - 01.05.2018-01.05.2019",
+    "sql": "select count(*)\n  from auction a\n  where status in ('SUCCESS', 'BUYNOW')\n    and is_deleted = 'N'\n    and dt_end >= to_date('13.08.2018','DD.MM.YYYY')\n    -- and dt_end <= to_date('30.04.2019','DD.MM.YYYY')\n    and dt_end <= to_date('13.08.2019','DD.MM.YYYY')\n;"
+  },
+  {
+    "id": 63,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1808",
+    "question": "3. Количество покупателей - 358  - 13.08.2018-13.08.2019  412 - 01.05.2018-01.05.2019",
+    "sql": "select\n  count(*)\n  from profile\n  where status = 'ok'::en_prof_status\n    and is_deleted = 'N'\n    and hasRole(id_profile, 'buyer') = 'Y'\n    and dt_create >= to_date('13.08.2018','DD.MM.YYYY')\n    and dt_create <= to_date('13.08.2019','DD.MM.YYYY')\n;"
+  },
+  {
+    "id": 64,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1819",
+    "question": "3.1 Количество активных покупателей(ставок>1) - 436 - (хоть одна ставка с 13.08.2018-13.08.2019)",
+    "sql": "select\n  count(*)\n  from profile\n  where status = 'ok'::en_prof_status\n    and is_deleted = 'N'\n    and hasRole(id_profile, 'buyer') = 'Y'\n    --and dt_create >= to_date('13.08.2018','DD.MM.YYYY')\n    --and dt_create <= to_date('13.08.2019','DD.MM.YYYY')\n    and id_profile in (select id_profile from auction_log al where event_type in ('MAKE_BID','SET_PROXY','BUYNOW')\n      and dt_set >= to_date('13.08.2018','DD.MM.YYYY')\n      and dt_set <= to_date('13.08.2019','DD.MM.YYYY')\n  )\n  --group by id_profile\n;"
+  },
+  {
+    "id": 65,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1835",
+    "question": "4. Количество продавцов - 94",
+    "sql": "select count(*)\n  from profile\n  where status = 'ok'::en_prof_status\n    and is_deleted = 'N'\n    and hasRole(id_profile, 'seller') = 'Y'\n    and dt_create >= to_date('01.05.2018','DD.MM.YYYY')\n    and dt_create <= to_date('01.05.2019','DD.MM.YYYY')\n;"
+  },
+  {
+    "id": 66,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1846",
+    "question": "4.1 Количество активных продавцов (лот>1) 106 - выставил хотя бы 1 лот за период 13.08.2018 - 13.08.2019",
+    "sql": "select count(*)\n  from profile\n  where status = 'ok'::en_prof_status\n    and is_deleted = 'N'\n    and hasRole(id_profile, 'seller') = 'Y'\n    --and dt_create >= to_date('01.05.2018','DD.MM.YYYY')\n    --and dt_create <= to_date('01.05.2019','DD.MM.YYYY')\n    and id_profile in (select carl_prof._get_id_profile(id_user_profile) as ip from auction where 1=1\n                         and dt_end >= to_date('13.08.2018', 'DD.MM.YYYY')\n                         and dt_start <= to_date('13.08.2019', 'DD.MM.YYYY')\n    )\n;"
+  },
+  {
+    "id": 67,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1867",
+    "question": "5. Апрув рейт по опен лотам? Количество единиц продано / Количество единиц выставлено без перевыставлений",
+    "sql": "1447;2805;0.5159\n- 1169, 2353, 0.4968;\n\nselect suc, suc+nosuc, suc/((suc+nosuc)*1.) from (\n  select count(*) suc\n  from auction a\n  where status in ('SUCCESS', 'BUYNOW')\n        and is_deleted = 'N'\n        and auction_type = 'OPEN'\n        and dt_end >= to_date('13.08.2018', 'DD.MM.YYYY')\n        and dt_end <= to_date('13.08.2019', 'DD.MM.YYYY')\n) s1, (select count(*) nosuc\n  from auction a\n  where status in ('FAILED')\n        and is_deleted = 'N'\n        and (is_archive = 'N' or is_archive is null)\n        and auction_type = 'OPEN'\n        and dt_end >= to_date('13.08.2018', 'DD.MM.YYYY')\n        and dt_end <= to_date('13.08.2019', 'DD.MM.YYYY')\n) s2\n;"
+  },
+  {
+    "id": 68,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:1985",
+    "question": "5.X % Возврат клиентов (те кто делали хоть 1 ставку после выигрыша)",
+    "sql": "do $$\ndeclare\n    _dt timestamp; _ip int; _cnt int; _ret int := 0; _no_ret int := 0;\n  begin"
+  },
+  {
+    "id": 69,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:2013",
+    "question": "6. Общая сумма продаж - 1 106 149 034",
+    "sql": "select sum(ab.bid_value) suc\n  from auction a, auction_bid ab\n  where ab.id_auction = a.id_auction\n        and a.status in ('SUCCESS', 'BUYNOW')\n        and ab.bid_status = 'LEAD'\n        and a.is_deleted = 'N'\n        -- and a.auction_type = 'OPEN'\n        and a.dt_end >= to_date('01.05.2018', 'DD.MM.YYYY')\n        and a.dt_end <= to_date('01.05.2019', 'DD.MM.YYYY')"
+  },
+  {
+    "id": 70,
+    "kind": "skip",
+    "source": "supp/exec_1_supp.sql:2067",
+    "question": "все аукционы (ставка лидера, кто лидер, выиграно, не выиграно, ожидают решения)",
+    "sql": "select a.id_auction, getProfSmartName2(up_s.id_profile) seller\n  , _getAuctLeaderIdProf(a.id_auction) leader\n  , status, bid_count, a.dt_start, a.dt_end\n  , ab.dt_set, ab.bid_status\n  from auction a\n    inner join user_profile up_s on a.id_user_profile = up_s.id_user_profile\n    left  join user_profile up_l on a.id_user_profile = up_s.id_user_profile\n    join auction_bid ab on a.id_auction = ab.id_auction\nlimit 10\n;"
+  },
+  {
+    "id": 71,
+    "kind": "skip",
+    "source": "supp/exec_1_supp.sql:2080",
+    "question": "все аукционы покупателя (выиграно, не выиграно, ожидают решения)",
+    "sql": "select * from profile p, user_profile up_b, user_profile up_s, auction a\n  where p.id_profile = up_s.id_profile\n    and"
+  },
+  {
+    "id": 72,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:2140",
+    "question": "Месяц, Кол-во лотов выставленных на торги,\nКол-во лотов проданных,\nкол-во байеров на конец месяца,\nКол-во активных баеров в этом месяце (те кто делали ставки),\nкол-во селлеров на конец месяце,\nкол-во селлеров активных (тех кто выставляли на торги в месяце)\nРасслоить байеров на физов и юров",
+    "sql": "--select sum(sum) from (\n  select\n    to_char(date_trunc('month', dt_end), 'MM.YYYY'),\n    getProfSmartName2(getSellerProfId(a.id_auction)),\n    _is_company(getAuctLeaderIdProf(a.id_auction)) is_company,\n    auction_type,\n    count(*)                                       sales,\n    sum(case when _is_company(getAuctLeaderIdProf(a.id_auction))\n      then\n        carl_auct.getAuctCommission(carl_prof._get_id_profile(a.id_user_profile), 0, a.id_auction)\n        else carl_auct.getAuctCommission(carl_prof._get_id_profile(a.id_user_profile), -1, a.id_auction) end)\n  from auction a\n  where status in ('SUCCESS', 'BUYNOW')\n        and getAuctLeaderIdProf(a.id_auction) is not null\n        and a.is_deleted = 'N'\n  group by date_trunc('month', dt_end), getSellerProfId(a.id_auction), _is_company(getAuctLeaderIdProf(a.id_auction)),\n    auction_type\n  order by date_trunc('month', dt_end), getSellerProfId(a.id_auction), _is_company(getAuctLeaderIdProf(a.id_auction)),\n    auction_type\n--) s1\n;"
+  },
+  {
+    "id": 73,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:2186",
+    "question": "?? кол-во пользователей кариспекта",
+    "sql": "-- select * from users where id_user not in (select id_user from user_info)\n--   and status not in ('UNKNOWN','ADMIN')\n--   and dt_created > to_timestamp('01.09.2018','DD.MM.YYYY')\n-- ;\n\nselect to_char(date_trunc('month', o.dt_create), 'DD.MM.YYYY'), o.name, count(*) from user_role ur, organ o\n  where ur.id_organ = o.id_organ\n  group by date_trunc('month', o.dt_create), o.name\n  order by date_trunc('month', o.dt_create), o.name\n;\n\nselect count(*) from users -- where inspect_paid_until > to_date('01.01.2019','dd.mm.yyyy');\n  group by password_hash;"
+  },
+  {
+    "id": 74,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:2204",
+    "question": "прибаление новых отчетов инстпекта\nактивные инспектора",
+    "sql": "--select sum(cnt) from (\n  select\n    to_char(date_trunc('month', dt_first), 'DD.MM.YYYY') first_rep,\n    count(*)                                             cnt\n  from (\n         select\n           id_user,\n           min(dt_create) dt_first\n         from inspect_report\n         group by id_user\n       ) s1\n  group by date_trunc('month', dt_first)\n  order by date_trunc('month', dt_first)\n--) s1\n;"
+  },
+  {
+    "id": 75,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:2256",
+    "question": "продажи продажных продавцов",
+    "sql": "-- select * from getSalesAtPeriod(interval '10 week');"
+  },
+  {
+    "id": 76,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:2933",
+    "question": "BPS выбрать мэйлы профилей и всех полбзователей с wcb с битом 4",
+    "sql": "select c.name comp_name, u.last_name, c.email comp_mail, u.email user_mail from profile p, user_profile up, users u, company c\n  where up.id_profile = p.id_profile\n        and p.id_company = c.id_company\n        and u.id_user = up.id_user\n        and (getProfParameterI(p.id_profile,'{who_can_buy}',0) & 4) > 0\n;"
+  },
+  {
+    "id": 77,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:2941",
+    "question": "не BPS выбрать мэйлы профилей и всех полбзователей с wcb с битом 8 и не 4",
+    "sql": "select c.name comp_name, u.last_name, c.email comp_mail, u.email user_mail from profile p, user_profile up, users u, company c\n  where up.id_profile = p.id_profile\n        and p.id_company = c.id_company\n        and u.id_user = up.id_user\n        and (getProfParameterI(p.id_profile,'{who_can_buy}',0) & 8) > 0\n        and (getProfParameterI(p.id_profile,'{who_can_buy}',0) & 4) = 0\n;"
+  },
+  {
+    "id": 78,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:3206",
+    "question": "1. количество всех юриков с договорами (статус ok и есть договор CONTRACT)",
+    "sql": "select count(*) from profile p, doc d where\n  id_company is not null and status = 'ok' and p.id_doc is not null\n  and d.id_doc = p.id_doc\n  and d.doc_type = 'CONTRACT'  ;\n342"
+  },
+  {
+    "id": 79,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:3213",
+    "question": "2. количество юриков сделавших хоть одну ставку",
+    "sql": "select count(*) from carl_auct.getBuyersCompStat1() where bids > 0;\n171"
+  },
+  {
+    "id": 80,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:3217",
+    "question": "3. количество юриков которые купили",
+    "sql": "select count(*) from carl_auct.getBuyersCompStat1() where buys > 0;\n96"
+  },
+  {
+    "id": 81,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:3368",
+    "question": "покупки юриков по городам когда город продажи не совпадает с городом аукциона",
+    "sql": "select count(*)::int as cnt, location --, buyer_city\n  from (\n  select\n    p.id_profile,\n    ab.dt_set dt_last_bid,\n    al.dt_set dt_last_buy,\n    a.id_auction,\n    o.id_object,\n    oav.values#>>'{properties,location}' as location,\n    ct.name as buyer_city,\n    p.id_city,\n    ct.id_city\n  from profile p\n    inner join auction a on (a.is_deleted = 'N' and a.status = 'SUCCESS')\n  \tinner join object o on (a.id_object = o.id_object)\n \t  inner join obj_attrib_values oav on (o.id_object = oav.id_object)\n    inner join auction_bid ab on (ab.id_auction = a.id_auction and ab.bid_status = 'LEAD'\n                                  and ab.is_deleted = 'N'\n                                  and (_get_id_profile(ab.id_user_profile) = p.id_profile))\n    left join auction_log al on (al.id_auction = ab.id_auction and al.event_type = 'SUCCESS'\n                                 and al.is_deleted = 'N')\n    inner join city ct on (p.id_city = ct.id_city)\n  where\n    p.is_deleted = 'N'\n    and p.id_company is not null\n    and oav.values#>>'{properties,location}' <> ct.name\n) s1\n  -- where (p_id_profile is null or id_profile = p_id_profile)\ngroup by s1.location --, s1.buyer_city\norder by cnt desc\n;"
+  },
+  {
+    "id": 82,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:3492",
+    "question": "юрики покупатели с 0 покупок",
+    "sql": "select p.id_profile\n  , coalesce(bids,0) as bids\n  , case when days_from_ok > 0 then round((coalesce(num_logins,0)/days_from_ok)::numeric , 3) else 0 end  mean_logins\n--  , case when purchase is not null then round( (purchase::float/bids::float)::numeric, 3) else 0 end kpd\n  , getProfSmartName2(p.id_profile) as name\n--  , coalesce(purchase,0) as buys /*, carl_auct.getPurshCount(p.id_profile)*/\n  , num_logins\n  , days_from_ok\n  from profile p\n  left join (\n    select count(*) as bids, up.id_profile from auction_bid ab, user_profile up\n      where up.id_user_profile = ab.id_user_profile\n      group by up.id_profile\n    ) s1 on s1.id_profile = p.id_profile\n  left join (\n    select count(*) as purchase, up.id_profile from auction a, auction_bid ab, user_profile up\n      where up.id_user_profile = ab.id_user_profile\n        and a.id_auction = ab.id_auction\n        and ab.bid_status = 'LEAD'\n        and a.status = 'SUCCESS'\n      group by up.id_profile\n    ) s2 on s2.id_profile = p.id_profile\n  left join (\n    select up.id_profile, count(*) as num_logins from user_login ul, user_profile up\n      where up.id_user = ul.id_user\n      group by up.id_profile\n    ) s3 on s3.id_profile = p.id_profile\n  left join (\n    select p.id_profile, date_part('day',current_timestamp - p.dt_signe) days_from_ok_1\n      , case when p.dt_signe < timestamp '2018-06-04' then\n        date_part('day',current_timestamp - timestamp '2018-06-04') else\n        date_part('day',current_timestamp - p.dt_signe) end days_from_ok -- с учетом начала ведения user_login\n      from profile p\n    ) s4 on s4.id_profile = p.id_profile"
+  },
+  {
+    "id": 83,
+    "kind": "note",
+    "source": "supp/exec_1_supp.sql:3716",
+    "question": "Выгрузить всех ИП (мэйлы)",
+    "sql": "select id_profile, getProfSmartName2(p.id_profile), substr(u.email,4) as owner_email, substr(c.email,4) as comp_email\n    from profile p, company c, users u\n   where p.is_deleted='N' and c.is_deleted='N'\n    and p.id_user_owner = u.id_user\n    and p.id_company = c.id_company\n    and c.ownership_type = 'ИП'\n   order by p.id_profile\n;\n\nselect id_profile, getProfSmartName2(p.id_profile), u.email as owner_email, c.email as comp_email\n    from profile p, company c, users u\n   where p.is_deleted='N' and c.is_deleted='N'\n    and p.id_user_owner = u.id_user\n    and p.id_company = c.id_company\n    and c.ownership_type = 'ИП'\n   order by p.id_profile\n;"
+  },
+  {
+    "id": 84,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:8",
+    "question": "1. Те, кто делал ставки на легковые автомобили с 01.09.24 по текущий момент",
+    "sql": "-- select * from carl_an.auct_bids_an\n\nwith aa as (\n    select distinct a.id_auction, a.id_user_profile from auction a, object o, object_type ot\n    where a.id_object = o.id_object\n            and ot.id_object_type = o.id_object_type\n            and ot.id_object_type_top=1\n)\nselect distinct *\nfrom (\n    -- select '---------------- Делали ставки',null, null, null\n    select distinct -- 'Делал ставку',\n        --u.id_user, p.id_profile, p.id_company is not null as company,\n        getUserSmartName(u.id_user)               as user\n            , u.email\n        , case when p.id_company is not null then false else true end as phys\n    --      , getProfSmartName2(id_profile) as company\n    from aa,\n        carl_an.auct_bids_an ab,\n        users u,\n        profile p\n    where aa.id_auction = ab.id_auction\n            and ab.id_user_bid = u.id_user\n            and ab.id_profile_bid = p.id_profile\n        --    and u.id_user in (20107, 19331)\n        --             and u.id_user in (\t9536)\n            and ab.last_bid_set > now() - interval '2 year' -- '01.09.2024'\n            and ab.id_user_bid is not null                                                         -- ставил\n            and u.reg_domain = 'carlink'\n        --    and (p.id_individual is null or                                                        -- юрики                                                     -- юрики\n        --         p.dt_create > to_date('01.09.2024', 'DD.MM.YYYY')) -- физы карлинка\n            and _isBuyer(p.id_profile)                                                             -- покупатель\n            and (not p.parameters ? 'employer')                                                    -- не промокодчик\n            and u.is_deleted = 'N'\n            and p.iS_deleted = 'N'\n        ) t order by phys\n--           and (p.who_can_buy & 1 > 0 or p.who_can_buy & 2 > 0)\n;"
+  },
+  {
+    "id": 85,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:203",
+    "question": "Кто смотрел и кто делал ставки\nпользователи с wcb отличным от 1 и 2  не должны попасть\nПокупаны Юрики физики, которые делали ставки на груз и спец\n1) Убрать промокодчиков\n2) Убрать плейкар для физов - dt_create профиля > 18.09.2023\n3) is_deleted юзеры и профили учесть",
+    "sql": "-- select * from profile where getProfSmartName2(id_profile) ilike '%Флит Автолизин%';\n --> 29437"
+  },
+  {
+    "id": 86,
+    "kind": "skip",
+    "source": "supp/exec_2_supp.sql:279",
+    "question": "5) имейлы овнеров надо взять",
+    "sql": "-- select * from carl_data.object_type where id_object_type_parent=223 or id_object_type=2\n\nselect p.id_profile\n     , getProfSmartName2(p.id_profile)\n     -- , _getProfSmartName23(p.id_profile, true, false)\n     , case when p.id_company is not null then 'Юрик' else 'Физик' end\n     , max(u.email) email\n     , p.is_deleted\nfrom auction a, auction_bid ab, user_profile up, profile p, users u\n   ,  object o, object_type ot\nwhere up.id_user_profile = ab.id_user_profile\n  and p.id_profile = up.id_profile\n  and p.id_user_owner = u.id_user\n  and a.id_auction = ab.id_auction\n  and ab.bid_status = 'LEAD'\n  and a.status in ('SUCCESS', 'BUYNOW')\n  and a.id_object = o.id_object\n  and ot.id_object_type = o.id_object_type\n  and (ot.id_object_type_parent in (1,2,223) -- легковые и KRN\n            or ot.id_object_type in (1,2,223)\n            )\n  and p.is_deleted = 'N'\n  and up.is_deleted = 'N'\n  and u.is_deleted = 'N'\n  and u.reg_domain = 'carlink'\n  and not (p.parameters ? 'employer')\ngroup by p.id_company, p.id_profile\norder by p.id_company, p.id_profile\n;"
+  },
+  {
+    "id": 87,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:314",
+    "question": "Кто смотрел и кто делал ставки\nПокупаны Юрики физики, которые делали ставки на груз и спец\n1) Убрать промокодчиков\n2) Убрать плейкар для физов - dt_create профиля > 18.09.2023\n3) is_deleted юзеры и профили учесть",
+    "sql": "-- юкики и физики\nwith aa as (\n    select distinct a.id_auction, a.id_user_profile\n        from auction a, object o, object_type ot\n    where a.id_object = o.id_object\n      and ot.id_object_type = o.id_object_type\n      and ot.id_object_type_top in (8, 14)\n)\n-- select '---------------- Просмотры',null, null, null\nselect distinct *\nfrom (\n-- union all\n         select distinct -- 'Смотрел',\n                        -- u.id_user, p.id_profile, p.id_company is not null as company,\n                        getUserSmartName(u.id_user), u.email\n         from aa,\n              carl_an.auct_views_an va,\n              users u,\n              profile p\n         where aa.id_auction = va.id_auction\n           and va.id_user_view = u.id_user\n           and va.id_profile_view = p.id_profile\n           and va.id_user_view is not null                                                        -- смотрел\n           and (p.id_individual is null or\n                (u.reg_domain = 'carlink' and p.dt_create > to_date('18.09.2023', 'DD.MM.YYYY'))) -- физы карлинка\n           and _isBuyer(p.id_profile)                                                             -- покупатель\n           and (not p.parameters ? 'employer')                                                    -- не промокодчик\n           and u.is_deleted = 'N'\n           and p.iS_deleted = 'N'\n         union all\n         -- select '---------------- Делали ставки',null, null, null\n-- union all\n         select distinct -- 'Делал ставку',\n                         --u.id_user, p.id_profile, p.id_company is not null as company,\n                         getUserSmartName(u.id_user), u.email\n         from aa,\n              carl_an.auct_bids_an ab,\n              users u,\n              profile p\n         where aa.id_auction = ab.id_auction\n-- … обрезано"
+  },
+  {
+    "id": 88,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:386",
+    "question": "Просьба предоставить за всё время выгрузку Покупателей\n, кто покупал легковые автомобили.\nВ экселе электронные адреса, отдельно ФЛ и ЮЛ",
+    "sql": "select p.id_profile\n     , getProfSmartName2(p.id_profile)\n     -- , _getProfSmartName23(p.id_profile, true, false)\n     , case when p.id_company is not null then 'Юрик' else 'Физик' end\n     , max(u.email) email\n     , p.is_deleted\nfrom auction a, auction_bid ab, user_profile up, profile p, users u\n   ,  object o, object_type ot\nwhere up.id_user_profile = ab.id_user_profile\n  and p.id_profile = up.id_profile\n  and p.id_user_owner = u.id_user\n  and a.id_auction = ab.id_auction\n  and ab.bid_status = 'LEAD'\n  and a.status in ('SUCCESS', 'BUYNOW')\n  and a.id_object = o.id_object\n  and ot.id_object_type = o.id_object_type\n  and (ot.id_object_type_parent in (1,223) -- легковые и KRN\n            or ot.id_object_type in (1,223))\n  and p.is_deleted = 'N'\n  and up.is_deleted = 'N'\n  and u.is_deleted = 'N'\n  and u.reg_domain = 'carlink'\n  and not (p.parameters ? 'employer')\ngroup by p.id_company, p.id_profile\norder by p.id_company, p.id_profile\n;\n\nselect * from object_type ot\n    where ot.id_object_type_parent in (1,223)\n        or ot.id_object_type in (1,223)\n;"
+  },
+  {
+    "id": 89,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:475",
+    "question": "Нужна выгрузка покупателей официальных и неофициальных дилеров по легковым авто\nза последние два года\nставки делали, покупали, просто смотрели",
+    "sql": ""
+  },
+  {
+    "id": 90,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:660",
+    "question": "Все кто ставил ставки на легковые авто, кроме промокодчиков\nПлейкар тоже не нужен",
+    "sql": "-- log_domain = carlink короче, без промокодчиков\n-- Только carlink24 не нужен тоже, как их отфильтровать ...\n-- Во, можно заблокированных не брать, тогда они выпадут"
+  },
+  {
+    "id": 91,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:898",
+    "question": "Админка. Сколько пользователей Рольфа было зарегистрировано",
+    "sql": "select to_char(dt2, 'MM.YYYY') amonth, sum from (\nselect dt as dt2\n, sum(cnt) over (order by dt) as sum\nfrom (\nselect date_trunc('month', dt) dt\n, -- , sum(sum_cnt) over (partition by dt)\ncount(*) cnt\nfrom (\nselect u.id_user, getusersmartname(u.id_user)\n, date_trunc('month', u.dt_created) dt\nfrom organ o, user_organ uo, users u, user_role ur, role r\nwhere uo.id_organ = o.id_organ and uo.id_user = u.id_user and ur.id_organ = o.id_organ and\nur.id_user = u.id_user and r.id_role = ur.id_role and o.id_group = 1\nand u.is_deleted = 'Y'\nand  not uo.deleted\n-- and u.dt_created >= to_date('01.12.2021', 'DD.MM.YYYY')\n-- and u.dt_created < to_date('01.06.2022', 'DD.MM.YYYY')\ngroup by u.id_user, o.id_organ\n) s1\ngroup by dt\n) s2\n) s3\nwhere dt2 >= to_date('01.12.2021', 'DD.MM.YYYY')\norder by dt2 desc\n;\n------------------------------------------------------------------\n-- Мирош. Сколько активных на данный момент по организациям Ролmфа\n------------------------------------------------------------------\nselect o.id_organ\n, o.name\n, o.description\n, count(*) cnt\nfrom organ o, user_organ uo, users u, user_role ur, role r\nwhere uo.id_organ = o.id_organ and uo.id_user = u.id_user and ur.id_organ = o.id_organ and\nur.id_user = u.id_user and r.id_role = ur.id_role and o.id_group = 1\nand u.is_deleted = 'N'\nand  not uo.deleted\n-- and u.dt_created >= to_date('01.12.2021', 'DD.MM.YYYY')\n-- and u.dt_created < to_date('01.06.2022', 'DD.MM.YYYY')\ngroup by o.id_organ\n;\n-------------------------------------------------------------------------------\n-- Кто смотрел и кто делал ставки на автобусы (id_object_type in (6, 13))\n-------------------------------------------------------------------------------\n-- юкики и физики\n-- … обрезано"
+  },
+  {
+    "id": 92,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:1113",
+    "question": "Просьба выгрузить участников торгов (ООО, ИП,Физ лица) по ТС скания от продавцов \"Интернет решения\" 20430\nи \"Скания лизинг\" 15680 за 2021-2023 год.\n1) Участники торгов - какая нужна информация? Список полей приведи пожалуйста\n2) по ТС Скания - что имеется ввиду? Только авто марки Скания?\n3) 21 - 23 годы - суммарно за все время\n1) id профиля или наименование (как удобно Вам); 2) только марки Скания; 3) Верно- суммарно",
+    "sql": ""
+  },
+  {
+    "id": 93,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:1188",
+    "question": "Выгрузка лотов, марка, модель, ID Seller\n,  признак осмотрено Карлин/осмотрено Продавцом\n, количество ставок по этим лотам, стартовая цена, итоговая цена и статус - failed, sucsecc, buy now\nЗа период с начала года по 15 апреля",
+    "sql": "carl_auct.getAuctBidCount(p_id_auction int)\n\nselect a.id_auction\n    Карл Дима Морозов, [30.05.2023 16:37]\n        Просьба выгрузить участников торгов (ООО, ИП,Физ лица) по ТС скания от продавцов \"Интернет решения\" и \"Скания лизинг\" за 2021-2023 год."
+  },
+  {
+    "id": 94,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:1262",
+    "question": "Количество осмотров в инспекте  по дням за март и апрель по двум юзерам:\n7490 и 457",
+    "sql": "select ir.id_user, getUserSmartName(ir.id_user)\n       , count(*)\n       , to_char(date_trunc('day', ir.dt_create), 'DD.MM.YYYY')\n    from inspect_report ir\n    where ir.dt_create >= to_date('01.03.2023', 'DD.MM.YYYY')\n      and ir.dt_create < to_date('01.05.2023', 'DD.MM.YYYY')\n        and  ir.id_user in (7490,457)\ngroup by ir.id_user, date_trunc('day', ir.dt_create)\norder by ir.id_user, date_trunc('day', dt_create)\n;\n\nSELECT getCarInspectReportListByFilterCount(3,'{\"filter\":{\"id_user\":3,\"report\":{\"author\":{\"OR\":[\"=''457''\"]},\"dt_create\":{\"AND\":[\">=''1680296400''\",\"<=''1681938000''\"]}}}}');\nselect  1  from (\n                                                           select 1\n                                                           from carl_data.inspect_report rep\n                                                                    left join carl_data.users usr on usr.id_user = rep.id_user  left join carl_data.favorite fvr on fvr.key_inspect_report = rep.key and fvr.id_user = 3 where (carl_inspect.canUserEditReport(3,key) or carl_auth._is_admin(3))  and\n                                                                   rep.is_deleted = 'N'  and  ((rep.id_user) ='457') AND ((extract(EPOCH FROM date_trunc('day', dt_create))) >='1680296400' AND (extract(EPOCH FROM date_trunc('day', dt_create))) <='1681938000') order by key desc offset 0 limit 501) t\n;\n\nSELECT DISTINCT object_type.name, getprofsmartname2(auction_bid.id_user_profile) AS buyer_name\nFROM auction\n         JOIN object ON auction.id_object = object.id_object\n         JOIN object_type ON object.id_object_type = object_type.id_object_type\n         JOIN auction_bid ON auction.id_auction = auction_bid.id_auction\nWHERE auction.status IN ('SUCCESS', 'BUYNOW')\n      AND auction_bid.bid_status = 'LEAD';"
+  },
+  {
+    "id": 95,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:1460",
+    "question": "активность покупателей по каждому месяцу\nс января по октябрь включительно.\n1. prof_name/prof_categ_buy/bids/buys/profile_city/period\nok с ролью buyer",
+    "sql": "with sel as (\n    select p.id_profile\n        , getProfSmartName2(p.id_profile) as name\n        , ss.t\n        , pcd.name as categ_name\n        , p.id_company is not null as is_yur\n        , getProfCity(p.id_profile) as city\n    from profile p\n         , prof_categ_dict pcd\n         , (select date_trunc('month', al.dt_set) t\n             from auction_log al\n             -- where al.dt_set >= to_date('01.01.2022', 'DD.MM.YYYY')\n             --         and al.dt_set < to_date('01.11.2022', 'DD.MM.YYYY')\n             where al.dt_set >= to_date('01.11.2022', 'DD.MM.YYYY')\n               and al.dt_set < to_date('01.12.2022', 'DD.MM.YYYY')\n             group by date_trunc('month', al.dt_set)\n             order by date_trunc('month', al.dt_set)\n            ) ss\n    where p.id_prof_categ_buy = pcd.id_prof_categ_dict\n      and p.status = 'ok'\n      and p.is_deleted = 'N'\n      and carl_prof.hasRole(p.id_profile, 'buyer') = 'Y'\n)\n   select sel.id_profile\n            , name\n            , categ_name\n            , coalesce (bids, 0) as bids\n            , coalesce (purchase, 0) as buys\n            , to_char(sel.t, 'mm.YYYY')\n            , city\n            , sel.is_yur\n        from sel\n        -- ставки\n        left join (\n            select count(*) as bids\n                   , date_trunc('month', ab.dt_set) dt\n                   , up.id_profile\n            from auction_bid ab, user_profile up\n            where up.id_user_profile = ab.id_user_profile\n            group by up.id_profile, date_trunc('month', ab.dt_set)\n-- … обрезано"
+  },
+  {
+    "id": 96,
+    "kind": "skip",
+    "source": "supp/exec_2_supp.sql:1525",
+    "question": "2. id_auction/mark/model/start_price/leader_summa/bid_count/bid_profiles/количество просмотров/location/\nвсе не draft не moderated не active\ndt_start_period\nпомесячно с января по октябрь включительно.",
+    "sql": "select id_auction\n            , mark\n            , model\n            , start_price\n            , summa_lead\n            , bid_count\n            ,\n        (select count(*) from (select count(*) cnt\n                               from auction_log al\n                               where al.event_type in ('MAKE_BID', 'AUTO_BID', 'SET_PROXY', 'BUYNOW') and\n                                   al.id_auction = a.id_auction\n                               group by al.id_profile\n                          ) s2\n            -- limit 1\n        ) bid_profiles\n            , n_views\n            , location\n            , to_char(a.dt_start, 'MM.YYYY')\n    from v_auct_total a\n    where a.status not in ('DRAFT', 'MODERATED', 'ACTIVE')\n          and a.dt_start >= to_date('01.01.2022', 'DD.MM.YYYY')\n          and a.dt_start < to_date('01.11.2022', 'DD.MM.YYYY')\n          -- and a.id_auction = 71307\n    order by a.dt_start\n;\n\nselect count(*) from auction_log al\n    where al.event_type in ('MAKE_BID', 'AUTO_BID', 'SET_PROXY', 'BUYNOW')\n        and al.id_auction = 71307\ngroup by al.id_profile\n71307"
+  },
+  {
+    "id": 97,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:1609",
+    "question": "Кто смотрел лоты продавца ip 143, ip 1623\nБМВ по месяцам",
+    "sql": "select -- a.id_auction\n    to_char(date_trunc('month', dt_end), 'MM.YYYY') as month\n        , getProfsmartname2(id_profile) who_see_prof\n        , count(*) cnt\n    -- , getusersmartname(an.id_user) who_see_name\n    -- , dt_set dt_view\n    -- , ip\nfrom auction_nview an, auction a\nwhere a.id_auction = an.id_auction -- and  id_auction = 34714\n        and _get_auct_seller_id(an.id_auction) in (1623) --143) --, 1623)\n    -- and status = 'ACTIVE'\n        and a.dt_end > to_timestamp('01.01.2020 00:00:00','DD.MM.YYYY HH24:MI:SS')\ngroup by who_see_prof\n        , date_trunc('month', dt_end)\norder by date_trunc('month', dt_end)\n;"
+  },
+  {
+    "id": 98,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:1671",
+    "question": "отчет по всем осмотрам организаций Rolf за все время.\nПоля:\nМарка\nМодель\nГод выпуска\nФИО инспектора (кто создал осмотр)\nЦена 1 (Оценка)\nЦена 2 (Цена закупки)\nОрганизация\nДата создания осмотра (без времени)",
+    "sql": ""
+  },
+  {
+    "id": 99,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:1757",
+    "question": "Снять отчет с 01.07.21 по 31.08.22 по количеству осмотров от ФЛ\n(группировка помесячно)",
+    "sql": "-- select * from organ o;"
+  },
+  {
+    "id": 100,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:1974",
+    "question": "Прошу сделать выгрузку покупателей (участники торгов) по лотам автомобилей\nFord Transit, Hyundai H-1, ГАЗ ГАЗЕЛЬ Next, ГАЗ ГАЗЕЛЬ, Mercedes-Benz Sprinter, Renault Master.\nНеобходимы только е-mail покупателей (физ. лиц и юр. лиц.) для последующей рассылки.\nМожно за последний год. КТО СТАВИЛ СТАВКИ и кто выиграл.",
+    "sql": "select email, user_name, company_name from (\n    select u.id_user\n            , a.id_auction\n            -- , oav.values #>> '{characteristics,mark}'\n            -- , oav.values #>> '{characteristics,model}'\n            , getUserSmartName(u.id_user) user_name\n            , getProfSmartName2(p.id_profile) company_name\n            , u.email\n    from auction a, object o, auction_log al\n            ,users u, profile p , obj_attrib_values oav\n    where 2 = 2\n          and oav.id_object = o.id_object\n          and a.id_auction = al.id_auction and al.id_user = u.id_user and a.id_object = o.id_object and\n        al.id_profile = p.id_profile and p.id_company is not null  -- company\n        and al.event_type in ('MAKE_BID', 'AUTO_BID', 'SET_PROXY') and u.is_deleted = 'N'\n        and\n        (1 = 2\n            or (oav.values #>> '{characteristics,mark}' = 'Ford'\n                and oav.values #>> '{characteristics,model}' = 'Transit')\n            or (oav.values #>> '{characteristics,mark}' = 'Hyundai'\n                and oav.values #>> '{characteristics,model}' = 'H-1')\n            or (oav.values #>> '{characteristics,mark}' = 'ГАЗ'\n                and oav.values #>> '{characteristics,model}' = 'ГАЗЕЛЬ Next'\n             )\n            or (oav.values #>> '{characteristics,mark}' = 'ГАЗ'\n                and oav.values #>> '{characteristics,model}' = 'ГАЗЕЛЬ'\n             )\n            or (oav.values #>> '{characteristics,mark}' = 'Mercedes-Benz'\n                and oav.values #>> '{characteristics,model}' = 'Sprinter'\n             )\n            or (oav.values #>> '{characteristics,mark}' = 'Renault'\n                and oav.values #>> '{characteristics,model}' = 'Master'\n             )\n            )\n        and a.dt_change_status >= to_date('01.01.2022', 'DD.MM.YYYY')\n    ) s1\n    group by id_user, email, user_name, company_name\n;"
+  },
+  {
+    "id": 101,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:2059",
+    "question": "Список тех, кто хотя бы раз ставил на лоты такого же типа как в лотах:\n95712,95719",
+    "sql": "select p.id_individual is not null as is_phys\n       , case when p.id_individual is not null then getUserSmartName(u.id_user)\n            else getProfSmartName2(p.id_profile) end\n       , u.email, u.phone\n\n    from auction a, object o, auction_log al, users u, profile p\n    where 2=2\n    and a.id_auction = al.id_auction\n    and al.id_user = u.id_user\n    and a.id_object = o.id_object\n    and al.id_profile = p.id_profile\n    and o.id_object_type in (select o1.id_object_type from object o1, auction a1\n        where o1.id_object = a1.id_object and a1.id_auction in (95712,95719))\n    and al.event_type in ('MAKE_BID','AUTO_BID','SET_PROXY')\n    and u.is_deleted = 'N'\n group by u.id_user, p.id_profile\n order by is_phys\n;"
+  },
+  {
+    "id": 102,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:2083",
+    "question": "выгрузку по лотам Мултон Партнерс в статусе финишд,\nнужно количество участников по каждому лоту",
+    "sql": "select a.id_auction, dt_create, carl_auct.getAuctObjAttrib(a.id_auction\n    , 'VIN') VIN, seller_name\n    , carl_auct.getAuctObjAttrib(a.id_auction, 'mark') mark\n    , carl_auct.getAuctObjAttrib(a.id_auction, 'model') model\n    , count(1) participants\nfrom auction a,\n     object o,\n     (select distinct id_profile, id_auction\n      from auction_bid ab,\n           user_profile up\n      where ab.id_user_profile = up.id_user_profile) abs\nwhere seller_name = '\"Мултон Партнерс\" ООО'\n  and status = 'FINISHED'\n  and a.id_object = o.id_object\n  and abs.id_auction = a.id_auction\ngroup by a.id_auction, dt_create, carl_auct.getAuctObjAttrib(a.id_auction, 'VIN'), seller_name\n;"
+  },
+  {
+    "id": 103,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:3021",
+    "question": "Остатки на депозитах carlink24 и playcar",
+    "sql": "-- carlink24 2600000 27.01.2021\n-- carlink24 2559850 28.01.2021\n-- carlink24 2489850 29.01.2021\n-- carlink24 2319850 02.02.2021\n-- carlink24 2179850 04.02.2021\n-- carlink24 2099850 05.02.2021\n-- carlink24 1904850 15.02.2021\n-- carlink24 1284850 04.05.2021\n-- carlink24  605000 14.06.2022\n\nselect sum(p.balance_reserv + p.balance_summ)\n  from carl_data.users u, carl_data.user_profile up, carl_data.profile p\n  where up.id_profile = p.id_profile\n    and up.id_user = u.id_user\n    and p.id_individual is not null\n    and u.is_deleted = 'N'\n    and up.is_deleted = 'N'\n    and p.is_deleted = 'N'\n    and not _is_admin_or_manager(u.id_user)\n    -- and u.id_user > 100\n    and u.status not in ('ADMIN','MANAGER')\n    and p.id_broker is null\n    and not (p.parameters ? 'employer')\n    and u.id_user <> 108\n    and u.reg_domain = 'carlink'\n;"
+  },
+  {
+    "id": 104,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:3095",
+    "question": "1) Посчитать количество продаж по лотам Ростелекома с 01.01.19-24.05.22\nотдельно по сотрудникам (промокодчики) и отдельно по внешним покупателям\nпромо 213\nвсего 401\nостальных 188",
+    "sql": "-- select sum(cnt) from (\n    select getProfSmartName2(p_buy.id_profile) buyer\n        , p_buy.parameters ->> 'employer' = 'ПАО Ростелеком' as is_rostele\n        , to_char(a.dt_start, 'DD.MM.YYYY') dt_start\n        , to_char(a.dt_end, 'DD.MM.YYYY')   dt_end\n        , getProfSmartName2(p_sel.id_profile) seller\n        , ab.bid_value as value\n        -- , count(*) cnt\n    from auction a, profile p_sel, profile p_buy, auction_bid ab\n    where 2 = 2\n          and a.id_auction = ab.id_auction\n          and ab.bid_status = 'LEAD'\n          and _get_auct_leader(a.id_auction) = p_buy.id_profile\n          and p_sel.id_profile = getSellerProfId(a.id_auction)\n          and getProfSmartName2(p_sel.id_profile) ilike '%ростеле%'\n          and a.is_deleted = 'N'\n          and p_sel.is_deleted = 'N'\n          and a.status in ('SUCCESS', 'BUYNOW')\n          and a.dt_change_status >= to_date('01.01.2019', 'DD.MM.YYYY')\n          and a.dt_change_status < to_date('27.05.2022', 'DD.MM.YYYY')\n          -- and p_buy.parameters ->> 'employer' = 'ПАО Ростелеком' -- Промокотчики\n    -- group by p_buy.id_profile\n    order by a.dt_end\n-- ) s1\n;"
+  },
+  {
+    "id": 105,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:3145",
+    "question": "Дилеры-покупатели (buyer и id_prof_categ_buy = Offical Dealer), которые подходят по wcb =\n'BMW Premium Selection'\n1) BPS\n2) BMW\n3) MINI UCN\n4) MINI\n5) BMW Financial Cervices",
+    "sql": "-- В полях - ip, название профиля, привязанные юзеры с имейлами"
+  },
+  {
+    "id": 106,
+    "kind": "skip",
+    "source": "supp/exec_2_supp.sql:3179",
+    "question": "Дилеры-покупатели (buyer и id_prof_categ_buy = Offical Dealer)",
+    "sql": "-- В полях - ip, название профиля, привязанные юзеры с имейлами"
+  },
+  {
+    "id": 107,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:3216",
+    "question": "за период с 01.10.2021 по 30.04.2022 всех купленных только ОФИЦИАЛЬНЫМИ дилерами лотов.\nполя (дата (без времени), марка, модель, название профиля ОД",
+    "sql": "select distinct on (diller) a.id_auction\n            , to_char(a.dt_change_status, 'DD.MM.YYYY') as dt_change_status\n            , getAuctObjAttrib(a.id_auction, 'mark') as mark\n            , getAuctObjAttrib(a.id_auction, 'model') as model\n            , getProfSmartName2(p_buy.id_profile) as diller\n        -- getprofsmartname2(_get_auct_seller_id(a.id_auction)) as seller,\n        -- ab.bid_value                                         as price,\n        -- getAuctObjAttrib(a.id_auction, 'year')               as year,\n        -- extract('year' from ab.dt_set)                       as year_sell\n        --, coalesce(getAuctObjAttrib(id_auction,'expert_cert'),'N') as expert_cert\n        --, getAuctObjAttrib(id_auction,'VIN') as VIN\n        --, to_char(dt_change_status, 'DD.MM.YYYY') dt_change_status,\n        -- , case when _is_company(_get_auct_leader_2(a.id_auction))\n        --  then\n        --    carl_auct.getAuctCommission(_get_auct_leader_2(a.id_auction), 0, a.id_auction)\n        -- else carl_auct.getAuctCommission(_get_auct_leader_2(a.id_auction), -1, a.id_auction)\n        -- end\n    from auction a,\n        auction_bid ab\n            ,\n        prof_categ_dict pcd,\n        profile p_buy\n            ,\n        user_profile up\n    where 2 = 2 and ab.id_auction = a.id_auction and ab.bid_status = 'LEAD' and a.is_deleted = 'N' and\n        a.status in ('SUCCESS', 'BUYNOW') and ab.id_user_profile = up.id_user_profile and\n        up.id_profile = p_buy.id_profile and up.is_deleted = 'N' and p_buy.is_deleted = 'N' and\n        p_buy.id_prof_categ_buy = pcd.id_prof_categ_dict and pcd.name in ('Official Dealer') and\n        dt_change_status >= to_date('01.10.2021', 'DD.MM.YYYY') and\n        dt_change_status < to_date('01.05.2022', 'DD.MM.YYYY')\n    order by extract(epoch from dt_change_status), getProfSmartName2(p_buy.id_profile)\n;"
+  },
+  {
+    "id": 108,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:3253",
+    "question": "сколько дилеров\n57",
+    "sql": "select count(*) from (\n    select distinct on (getProfSmartName2(p_buy.id_profile)) a.id_auction\n            , getProfSmartName2(p_buy.id_profile) as diller\n    from auction a,\n        auction_bid ab\n            ,\n        prof_categ_dict pcd,\n        profile p_buy\n            ,\n        user_profile up\n    where 2 = 2 and ab.id_auction = a.id_auction and ab.bid_status = 'LEAD' and a.is_deleted = 'N' and\n        a.status in ('SUCCESS', 'BUYNOW') and ab.id_user_profile = up.id_user_profile and\n        up.id_profile = p_buy.id_profile and up.is_deleted = 'N' and p_buy.is_deleted = 'N' and\n        p_buy.id_prof_categ_buy = pcd.id_prof_categ_dict and pcd.name in ('Official Dealer') and\n        dt_change_status >= to_date('01.10.2021', 'DD.MM.YYYY') and\n        dt_change_status < to_date('01.05.2022', 'DD.MM.YYYY')\n    order by getProfSmartName2(p_buy.id_profile)\n) s1\n;"
+  },
+  {
+    "id": 109,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:3276",
+    "question": "сколько вообще\n558",
+    "sql": "select count(*) from (\n    select distinct on (getProfSmartName2(p_buy.id_profile)) a.id_auction\n            , getProfSmartName2(p_buy.id_profile) as diller\n    from auction a,\n        auction_bid ab,\n        -- prof_categ_dict pcd,\n        profile p_buy\n            ,\n        user_profile up\n    where 2 = 2 and ab.id_auction = a.id_auction and ab.bid_status = 'LEAD' and a.is_deleted = 'N' and\n        a.status in ('SUCCESS', 'BUYNOW') and ab.id_user_profile = up.id_user_profile and\n        up.id_profile = p_buy.id_profile and up.is_deleted = 'N' and p_buy.is_deleted = 'N' and\n        -- p_buy.id_prof_categ_buy = pcd.id_prof_categ_dict and pcd.name in ('Official Dealer') and\n        dt_change_status >= to_date('01.10.2021', 'DD.MM.YYYY') and\n        dt_change_status < to_date('01.05.2022', 'DD.MM.YYYY')\n    order by getProfSmartName2(p_buy.id_profile)\n) s1\n;"
+  },
+  {
+    "id": 110,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:3302",
+    "question": "прошу прислать выгрузку осмотров за май в иксель. Формат:\nToyota C-HR 1.2 CVT (115 л.с.) 4WD\nОценка -- ₽\n2018 г\nн/д км.\n1197 см3\nБензин\n115 л.с.\nПолный\nВариатор\nVIN-номер:\nРег. знак:\nХ618СА 799\nДата осмотра:\n19/05/2022 08:41 МСК\nОсмотрено компанией:\nООО ”РОЛЬФ МОТОРС”\nФИО специалиста:\nДмитрий Кузьменко\nДата изменения:\n19/05/2022 08:48 МСК;",
+    "sql": ""
+  },
+  {
+    "id": 111,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:3356",
+    "question": "Отчеты Рольфа\nПо органам, количество загруженных осмотров на веб-версию ПО (из мобильных приложений)\n, rоличество созданных отчетов на веб-версии ПО",
+    "sql": "select to_char(date_trunc('month', ir.dt_create), 'MM.YYYY') as day\n  , o.name organ_name\n  --, ir.report#>>'{tech_data,VIN}'\n  , count(*)\n  , report#>>'{appVersion}' is null as from_web\n  from inspect_report ir, organ o\n  where ir.api_key_organ = o.api_key_organ\n    and o.id_group = 1\n    and ir.dt_create between\n        to_date('01.05.2021','DD.MM.YYYY')\n        and to_date('01.08.2021','DD.MM.YYYY')\n  group by o.name\n    , date_trunc('month', ir.dt_create)\n    , report#>>'{appVersion}' is null\n    --, ir.report#>>'{tech_data,VIN}'\n  order by date_trunc('month', ir.dt_create), o.name, report#>>'{appVersion}' is null\n;"
+  },
+  {
+    "id": 112,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:3797",
+    "question": "все покупатели (физы, юрики, ИП) за исключением официальных дилеров",
+    "sql": "select p.id_profile, getProfSmartName2(p.id_profile), u.email as owner_email\n    from profile p\n     , users u\n     , user_profile up\n     , prof_categ_dict pcd\n   where up.id_profile = p.id_profile\n         and up.id_user = u.id_user\n         and p.id_user_owner = u.id_user\n         and _is_buyer(p.id_profile)\n         and p.id_prof_categ_buy = pcd.id_prof_categ_dict\n         and pcd.name not in ('Official Dealer')\n        and u.is_deleted='N'\n        and p.is_deleted='N'\n        and p.id_user_owner = u.id_user\n        and p.id_company is not null -- юрики физики\n        -- and u.email not ilike ('%@carlink.ru')\n        and p.id_profile > 20\n        -- and p.id_profile not in (17, 142, 851)\n   order by p.id_profile\n;"
+  },
+  {
+    "id": 113,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:3886",
+    "question": "Дилеры-покупатели официальные и неофициальные",
+    "sql": "-------------------------------------------------------------------------------\nselect up.id_user\n  , getusersmartname(up.id_user)\n  , u.email\n  , getprofsmartname2(p.id_profile)\n  from profile p\n     , user_profile up\n     , users u\n     , prof_categ_dict pcd\n  where\n    up.id_profile = p.id_profile\n    and u.id_user = up.id_user\n    and up.is_deleted = 'N'\n    and u.is_deleted = 'N'\n    and p.is_deleted = 'N'\n    and p.id_prof_categ_buy = pcd.id_prof_categ_dict\n    and _is_buyer(p.id_profile)\n    and pcd.name in ('Official Dealer')\n    and (p.who_can_buy & 1) >0\n    -- and pcd.name in ('Official Dealer', 'Unofficial Dealer')\n    -- and wcb.name in ('BMW Premium Selection', 'BMW Financial Services', 'BMW', 'MINI UCN', 'MINI')\n    -- убираем своих\n    and u.email not ilike ('%@carlink.ru')\n    -- and up.id_user > 200\n    and p.id_profile not in (17, 142, 851)\n  order by p.id_profile, getusersmartname(up.id_user)\n;"
+  },
+  {
+    "id": 114,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:3920",
+    "question": "по зарегистрированным пользователям по лэндингу ВТБ Лизинг",
+    "sql": "select id_user, getUserSmartName(id_user), email, phone\n  from users where reg_domain = 'vtb_leasing'\n  and is_deleted = 'N'\n  order by id_user;"
+  },
+  {
+    "id": 115,
+    "kind": "skip",
+    "source": "supp/exec_2_supp.sql:3930",
+    "question": "Фамилия;Имя;Отчетство;email;телефон;локация (название);Роль;id_user;api_key организации (локации)",
+    "sql": "select getUserSmartName(u.id_user), o.name\n  , u.email, u.phone\n  , r.name\n  from -- prof_dealer_code pdc,\n    organ o, user_organ uo, users u, user_role ur, role r\n  where 2=2\n    -- and pdc.\n    and uo.id_organ = o.id_organ\n    and uo.id_user = u.id_user\n    and ur.id_organ = o.id_organ and ur.id_user = u.id_user\n    and r.id_role = ur.id_role\n    and  o.id_group = 1\n    and u.is_deleted = 'N'\n    and not uo.deleted\n    order by o.id_organ, r.name, u.id_user\n;"
+  },
+  {
+    "id": 116,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:3954",
+    "question": "кто логинился в интервале",
+    "sql": "select ul.dt_set, u.id_user, getUserSmartName(u.id_user), ul.ip\n  from user_login ul, users u\n  where u.id_user = ul.id_user\n        --and dt_set between to_timestamp('01.01.2021 00:00:00','DD.MM.YYYY HH24:MI:SS')\n        --and to_timestamp('08.11.2022 11:30:00','DD.MM.YYYY HH24:MI:SS')\n  and u.id_user=69571\n  order by ul.dt_set\n;"
+  },
+  {
+    "id": 117,
+    "kind": "skip",
+    "source": "supp/exec_2_supp.sql:4012",
+    "question": "таблица атрибутов для всех типов тс, при условии, что они самые младшие дети?\nid_oobject, имя объекта, атрибуты - имя, визибл имя, тип.\nПричем надо и те, которые наследованы от родителей",
+    "sql": "with recursive tree (id, nm, id_parent, level, tag) as (\n      select\n        ot.id_object_type        id,\n        ot.name                  nm,\n        ot.id_object_type_parent id_parent,\n        1 as level,\n        dict_code\n      from object_type ot\n       where id_object_type_parent is null\n      union\n      select\n        ot2.id_object_type        id,\n        ot2.name                  nm,\n        ot2.id_object_type_parent parent,\n        tree.level + 1 as level,\n        ot2.dict_code\n      from object_type ot2\n        join tree on ot2.id_object_type_parent = tree.id\n    ) select id\n        , lpad('  ', level) || nm\n        , s2.id_obj_attribute\n        , s2.visible_name\n        , s2.name\n        , s2.attrib_type\n        , s2.categ_name\n        from tree, carl_obj.getObjTypeAttribListT(tree.id) s2\n  where 2=2\n      and carl_obj._getChildCount(id) = 0\n      and s2.categ_name not in ('options', 'completeness')\n      -- and level = 2\n      order by tree.id, s2.visible_name\n;"
+  },
+  {
+    "id": 118,
+    "kind": "skip",
+    "source": "supp/exec_2_supp.sql:4145",
+    "question": "Всем профилям юрикам байерам, кто Official Dealer\nдобавить wcb  262144",
+    "sql": "-- для незаблокированных"
+  },
+  {
+    "id": 119,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:4448",
+    "question": "все кто логинился с 9 до 15",
+    "sql": "select id_user, getUserSmartName(id_user), value, ip, dt_set\n  from user_login\n  where dt_set > to_timestamp('11.10.2021 00:01', 'DD.MM.YYYY HH24:MI')\n    and dt_set < to_timestamp('11.10.2021 20:00', 'DD.MM.YYYY HH24:MI')\n  order by dt_set desc\n;"
+  },
+  {
+    "id": 120,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:4220",
+    "question": "Кол-во подходящих под МС-банк\nлегковые, не аварийные, year >= 2011, dkp_type sel in (dkp_agent, dkp_komissia)\nвыставленных dt_active >= 12/04 на плайкар для физов",
+    "sql": "select count(*)\n  from auction a where\n    dt_active >= to_date('12.04.2021','DD.MM.YYYY')\n    and getprofparameter(_get_auct_seller_id(id_auction),'{dkp_type}') in ('dkp_agent', 'dkp_komissia')\n    and getAuctObjAttrib(a.id_auction, 'year')::int >= 2011\n    and getAuctObjAttrib(a.id_auction, 'total') = 'N'\n    and who_can_buy & 2 > 0\n    and _get_auct_obj_type(a.id_auction) = 1\n;"
+  },
+  {
+    "id": 121,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:4237",
+    "question": "Продажи по машинам (для Попова)",
+    "sql": "select mark\n  , model\n  , carl_auct.getAuctObjAttrib(a.id_auction, 'modification') modification\n  , VIN\n  , carl_auct.getAuctObjAttrib(a.id_auction, 'year') as year\n  , carl_auct.getAuctObjAttrib(a.id_auction, 'volume') volume\n  , carl_auct.getAuctObjAttrib(a.id_auction, 'power_hp') power_hp\n  , carl_auct.getAuctObjAttrib(a.id_auction, 'mileage') mileage\n  , carl_auct.getAuctObjAttrib(a.id_auction, 'engine') engine\n  , carl_auct.getAuctObjAttrib(a.id_auction, 'transmission') transmission\n\n  , carl_auct.getAuctObjAttrib(a.id_auction, 'location') as location\n  , va.summa_lead\n  , to_char(a.dt_end, 'DD.MM.YYYY') as dt_end\n  from v_auct_full_with_lead va, auction a\n  where va.id_auction = a.id_auction\n    and ( va.mark ilike 'Volkswagen'\n          or va.mark ilike 'Hyundai'\n          or va.mark ilike 'Skoda'\n          or va.mark ilike 'Ford'\n          or va.mark ilike 'Lada'\n          or va.mark ilike 'Renault'\n          or va.mark ilike 'Nissan'\n          or va.mark ilike 'Mercedes'\n          or va.mark ilike 'Toyota'\n          or va.mark ilike 'BMW'\n          or va.mark ilike 'Volvo'\n          or va.mark ilike 'Mitsubishi'\n          or va.mark ilike 'Porsche'\n          or va.mark ilike 'Audi'\n          or va.mark ilike 'Jeep'\n          or va.mark ilike 'Citroen'\n          or va.mark ilike 'ГАЗ'\n          or va.mark ilike 'MINI'\n          or va.mark ilike 'Iveco'\n          or va.mark ilike 'Land rover'\n          or va.mark ilike 'Mazda'\n          or va.mark ilike 'Peugeot'\n        )\n        and va.is_deleted = 'N'\n-- … обрезано"
+  },
+  {
+    "id": 122,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:4318",
+    "question": "Продажи всех Сименсов\nМарка, модель, VIN Номер государственной регистрации покупатель Дата реализации",
+    "sql": "select mark\n  , model\n  , VIN\n  , carl_auct.getAuctObjAttrib(a.id_auction, 'reg_num') reg_num\n  , getProfSmartName2(getAuctLeaderIdProf(a.id_auction)) \"Покупатель\"\n  , to_char(a.dt_change_status, 'DD.MM.YYYY') as \"Дата реализации\"\n  from v_auct_full_with_lead va, auction a\n  where va.id_auction = a.id_auction\n    and (va.seller_name ilike '%сименс%'\n      or va.seller_name ilike '%simen%')\n        and va.is_deleted = 'N'\n        and va.status in ('SUCCESS', 'BUYNOW')\n  order by a.dt_change_status\n  ;"
+  },
+  {
+    "id": 123,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:4344",
+    "question": "Выгрузку сделать для профилей, у которых Roles = Seller + Status = OK",
+    "sql": "select p.id_profile\n    , getprofsmartname2(p.id_profile)\n    , getusersmartname(u.id_user)\n    , u.status\n  from profile p, user_profile up, users u\n  where p.id_profile = up.id_profile\n    and u.id_user = up.id_user\n    and _is_seller(p.id_profile)\n    and p.status = 'ok'\n    and up.is_deleted = 'N'\n    and p.is_deleted = 'N'\n  order by p.id_profile, u.id_user\n;"
+  },
+  {
+    "id": 124,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:4428",
+    "question": "Кто смотрел лоты продавца ip 143, ip 1623\nБМВ",
+    "sql": "select _get_auct_seller_id(an.id_auction), a.id_auction\n  , getProfsmartname2(id_profile) who_see_prof\n  , getusersmartname(an.id_user) who_see_name\n  , dt_set dt_view\n  , ip\n  from auction_nview an, auction a\n  where a.id_auction = an.id_auction -- and  id_auction = 34714\n    and _get_auct_seller_id(an.id_auction) in (143, 1623)\n    -- and status = 'ACTIVE'\n--     and dt_set between to_timestamp('29.09.2020 09:00:00','DD.MM.YYYY HH24:MI:SS')\n    and an.dt_set > to_timestamp('07.09.2021 16:00:00','DD.MM.YYYY HH24:MI:SS')\n    --and an.dt_set < to_timestamp('09.09.2020 00:00:00','DD.MM.YYYY HH24:MI:SS')\n  order by _get_auct_seller_id(an.id_auction), a.id_auction, id_auction_nview desc\n;"
+  },
+  {
+    "id": 125,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:4458",
+    "question": "Кто смотрел лот 65061",
+    "sql": "select an.id_user, a.id_auction, id_profile\n  , getProfsmartname2(id_profile) who_see_prof\n  , getusersmartname(an.id_user) who_see_name\n  , dt_set dt_view\n  , ip\n  from auction_nview an, auction a\n  where a.id_auction = an.id_auction and  a.id_auction = 67858\n    -- and _get_auct_seller_id(an.id_auction) = 196\n    --and dt_set between a.dt_start and dt_end\n--    and dt_set between to_timestamp('20.09.2021 09:00:00','DD.MM.YYYY HH24:MI:SS') and dt_end\n--           and to_timestamp('29.09.2020 15:50:00','DD.MM.YYYY HH24:MI:SS')\n--     and a.dt_end > to_timestamp('29.09.2020 00:00:00','DD.MM.YYYY HH24:MI:SS')\n  order by a.dt_end desc, id_auction_nview desc\n;"
+  },
+  {
+    "id": 126,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:4477",
+    "question": "Кто смотрел лоты Лизплана (детально)",
+    "sql": "select a.id_auction, a.dt_end, id_profile\n  , getProfsmartname2(id_profile) who_see_prof\n  , getusersmartname(an.id_user) who_see_name\n  , dt_set dt_view\n  , ip\n  from auction_nview an, auction a\n  where a.id_auction = an.id_auction -- and  id_auction = 34714\n    and _get_auct_seller_id(an.id_auction) = 196\n    and dt_set between to_timestamp('29.09.2020 09:00:00','DD.MM.YYYY HH24:MI:SS')\n          and to_timestamp('29.09.2020 15:50:00','DD.MM.YYYY HH24:MI:SS')\n    and a.dt_end > to_timestamp('29.09.2020 00:00:00','DD.MM.YYYY HH24:MI:SS')\n  order by a.dt_end desc, id_auction_nview desc\n;"
+  },
+  {
+    "id": 127,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:4495",
+    "question": "Кто смотрел лот Лизплана (обрезаный вариант)",
+    "sql": "select id_profile\n  , getProfsmartname2(id_profile) who_see_prof\n  --, getusersmartname(an.id_user) who_see_name\n  , max(dt_set) dt_last_view\n  , ip\n  , count(*)\n  from auction_nview an\n  where 2=2 --a.id_auction = an.id_auction -- and  id_auction = 34714\n    and _get_auct_seller_id(an.id_auction) = 196\n    and dt_set between to_timestamp('29.09.2020 09:00:00','DD.MM.YYYY HH24:MI:SS')\n          and to_timestamp('29.09.2020 15:50:00','DD.MM.YYYY HH24:MI:SS')\n    and an.dt_set > to_timestamp('29.09.2020 00:00:00','DD.MM.YYYY HH24:MI:SS')\n  group by id_profile, ip\n  -- order by id_auction_nview desc\n;"
+  },
+  {
+    "id": 128,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:4546",
+    "question": "Необходимы следующие вводные с разбивкой по месяцам за 2020 год:\n- Количество проданных а/м в месяц\n- Стартовая цена (суммарно по всем а/м в месяц)\n- Финальная цена (суммарно по всем а/м в месяц)",
+    "sql": "-- Пример: \"Январь 2020/ Продано всего за месяц 20 авто/ Общая сумма всех стартовых цен за месяц - 30 тысяч/Общая сумма всех финальных цен за месяц - 50 тысяч\"\n-- id 205  208"
+  },
+  {
+    "id": 129,
+    "kind": "skip",
+    "source": "supp/exec_2_supp.sql:4969",
+    "question": "Дилеры-покупатели (buyer и id_prof_categ_buy = Offical Dealer), которые подходят по wcb =\n1) BPS\n2) BMW\n3) MINI UCN\n4) MINI\n5) BMW Financial Cervices",
+    "sql": "-- В полях - ip, название профиля, привязанные юзеры с имейлами"
+  },
+  {
+    "id": 130,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:5502",
+    "question": "мэйлы всех юзеров профилей, которые соответстуют заданным дилер кодам",
+    "sql": "select distinct getEmailByIdUser(up.id_user) email from profile p, user_profile up\n  where p.id_profile = up.id_profile\n    and (id_prof_categ_buy = 4 or id_prof_categ_buy = 3 or id_prof_categ_sel = 8)\n    -- and p.is_deleted = 'N'\n    and up.is_deleted = 'N'\n  order by email\n;\n-- select * from prof_categ_dict;"
+  },
+  {
+    "id": 131,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:5515",
+    "question": "Есть ли профиль у юзеров с мэйл",
+    "sql": "select *  from (\nselect  case when p.id_profile is not null then '+' end profile,  u.id_user, getusersmartname(u.id_user) fio , u.phone , u.email, u.status\nfrom users u, profile p , user_profile up\n--join profile p on (p.id_user=up.id_user)\nwhere reg_domain='carlink'\nand (\n  trim(email) like '%@slb.com' or\n  trim(email) like '%@pnggnm.ru' or\n  trim(email) like '%@radius-s.ru' or\n  trim(email) like '%@tpg.ru'\n)\nand carl_prof.hasRole(p.id_profile,'buyer') = 'Y'\nand u.id_user=up.id_user\nand up.id_profile=p.id_profile\nunion all\nselect '-' profile ,  u.id_user, getusersmartname(u.id_user) fio , u.phone , u.email, u.status\nfrom users u\nwhere reg_domain='carlink'\nand (\n  trim(email) like '%@slb.com' or\n  trim(email) like '%@pnggnm.ru' or\n  trim(email) like '%@radius-s.ru' or\n  trim(email) like '%@tpg.ru'\n)\nand not exists (select 1 from profile p , user_profile up\nwhere u.id_user=up.id_user\nand up.id_profile=p.id_profile )\n) t\norder by profile desc, split_part(trim(t.email),'@',2), fio, email\n;"
+  },
+  {
+    "id": 132,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:5595",
+    "question": "Отчеты  с сентября 2019 вин, dt_create, dt_update",
+    "sql": "select id_inspect_report id, report#>>'{tech_data,VIN}' VIN, dt_create, dt_update\n  from inspect_report\n  where is_deleted = 'N'\n        and dt_create >= to_date('01.09.2019', 'DD.MM.YYYY')\n  order by dt_create\n;"
+  },
+  {
+    "id": 133,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:5652",
+    "question": "кол-во status 'draft','signed'",
+    "sql": "select count(*) -- id_profile, who_can_buy, parameters#>>'{lock,comment}'\n  from profile\n  where 2=2 and status in ('draft','signed')\n        and id_individual is not null\n        -- and is_deleted = 'N'\n        and (parameters is null or not (parameters ? 'employer'))\n;"
+  },
+  {
+    "id": 134,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:5804",
+    "question": "Список промокодчиков",
+    "sql": "select p.id_profile, getprofsmartname2(p.id_profile), u.email, p.parameters#>>'{employer}' emp\n    from profile p, users u\n    where p.id_user_owner = u.id_user\n      and (parameters ? 'employer')\n    order by emp, p.id_profile\n;"
+  },
+  {
+    "id": 135,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:5816",
+    "question": "Сколько зарегилось по месяцам с начала года\nсколько создано физиков(статус любой)\nсколько создано юриков(статус любой)",
+    "sql": "select s0.dt, s0.users, s1.pys, s2.comp from --, s3.users_reg from\n  (select to_char(date_trunc('month', u.dt_created), 'MM.YYYY') dt\n    , count(*) users\n    from users u\n    where 2=2\n        and u.dt_created >= to_timestamp('01.01.2020', 'DD.MM.YYYY')\n    group by date_trunc('month', u.dt_created)) s0\n\n  , ( select to_char(date_trunc('month', p.dt_create), 'MM.YYYY') dt,\n        count(*) pys\n      from profile p\n      where 2 = 2\n        and p.dt_create >= to_timestamp('01.01.2020', 'DD.MM.YYYY')\n        and _is_individual(p.id_profile)\n    group by date_trunc('month', p.dt_create)) s1\n\n  , (select to_char(date_trunc('month', p.dt_create), 'MM.YYYY') dt\n    , count(*) comp\n    from profile p\n    where 2=2\n        and p.dt_create >= to_timestamp('01.01.2020', 'DD.MM.YYYY')\n        and not _is_individual(p.id_profile)\n    group by date_trunc('month', p.dt_create)) s2"
+  },
+  {
+    "id": 136,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:5912",
+    "question": "Профили физиков с депозитами",
+    "sql": "select p.id_profile, getUserSmartName(u.id_user)\n  , u.phone\n  , u.email\n  , p.dt_create\n  , carl_prof._lastBuy(p.id_profile)\n  , carl_auct.getPurshCount(p.id_profile) purchase\n  , (select count(*) from auction_log al where event_type in ('MAKE_BID','SET_PROXY') and al.id_profile = p.id_profile) bids\n  , balance_summ + balance_reserv\n  , (select max(dt_set) from user_login where id_user = u.id_user) last_login\n  , (select exists ( select 1 from profile p2, user_profile up2\n      where p2.id_profile = up2.id_profile\n        and up2.id_user = u.id_user\n        and p2.id_company is not null)) has_company_prof\n   , (select max(dt_set) from balance_operation where operation_type in ('BALANCE_PLUS', 'BALANCE_MINUS')\n       and id_profile = p.id_profile group by p.id_profile) last_balance_operation\n  , p.address_short as city\n  , (select\n       case when sum(s.pk) > 0 and sum(off) > 0 then 3\n         else  case when sum(s.pk) > 0 and sum(off) = 0 then 1\n          else  case when sum(s.pk) = 0 and sum(off) > 0 then 2\n          else\n          0 end\n         end\n       end  from (select case when getoperationtype(id_balance_operation) = 'PAYKEEPER' then 1 else 0 end as pk\n        , case when getoperationtype(id_balance_operation) = 'OFFLINE' then 1 else 0 end as off\n      from balance_operation\n      where operation_type in ('BALANCE_PLUS')\n      and id_profile = p.id_profile\n      ) s) paykeep_offline\n    , p.is_vip\n  from carl_data.profile p, users u --, user_profile up\n  where 2=2 --p.id_profile = up.id_profile\n    and u.id_user = p.id_user_owner\n    and p.id_individual is not null\n    and p.is_deleted = 'N'\n    and u.is_deleted = 'N'\n    -- and p.id_profile > 6500\n  order by p.id_profile\n;"
+  },
+  {
+    "id": 137,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:6108",
+    "question": "селлер  марка  модель  возраст авто  цена продажи  комиссия",
+    "sql": "select sum(commision) from (\n  select\n    a.id_auction,\n    getprofsmartname2(_get_auct_seller_id(a.id_auction)) as seller,\n    getAuctObjAttrib(a.id_auction, 'mark')               as mark,\n    getAuctObjAttrib(a.id_auction, 'model')              as model,\n    ab.bid_value                                         as price,\n    getAuctObjAttrib(a.id_auction, 'year')               as year,\n    extract('year' from ab.dt_set)                       as year_sell\n    --, coalesce(getAuctObjAttrib(id_auction,'expert_cert'),'N') as expert_cert\n    --, getAuctObjAttrib(id_auction,'VIN') as VIN\n    --, to_char(dt_change_status, 'DD.MM.YYYY') dt_change_status,\n    ,\n    case when _is_company(_get_auct_leader_2(a.id_auction))\n      then\n        carl_auct.getAuctCommission(_get_auct_leader_2(a.id_auction), 0, a.id_auction)\n    else carl_auct.getAuctCommission(_get_auct_leader_2(a.id_auction), -1, a.id_auction)\n    end\n                                                         as commision\n  from auction a, auction_bid ab\n  where 2 = 2\n        and ab.id_auction = a.id_auction\n        and ab.bid_status = 'LEAD'\n        and a.is_deleted = 'N'\n        and a.status in ('SUCCESS', 'BUYNOW')\n  -- and dt_end >= to_date('01.03.2020','DD.MM.YYYY')\n  --and not a.is_archive\n  --and dt_end >= to_date('01.05.2019','DD.MM.YYYY') and dt_end <= to_date('31.05.2019','DD.MM.YYYY')\n  -- and id_user_profile = 657\n  order by dt_change_status\n) s1\n;"
+  },
+  {
+    "id": 138,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:6145",
+    "question": "Все платежи по каринспекту через ПК кто заплатил и сумма\nвсе времена",
+    "sql": "select * from carl_data.invoice_pk pk, balance_operation bo\n  where bo.id_balance_operation = pk.id_bil_operation;\n\nselect getUserSmartName(pk.id_user) user_name, o.name organ_name, pk.pay_amount, bo.summ\n  from carl_data.bil_operation bo, carl_data.invoice_pk pk, organ o\n  where bo.id_organ = o.id_organ and summ > 0 and operation_type = 'BIL_PLUS'\n    and bo.id_bil_operation = pk.id_bil_operation\n;\n\nselect bo.summ  from carl_data.bil_operation bo\n  where summ > 0 and operation_type = 'BIL_PLUS'\n;"
+  },
+  {
+    "id": 139,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:6240",
+    "question": "Кто делал ставки лоты Лизплана",
+    "sql": "select up.id_profile, getProfSmartName2(up.id_profile)-- , max(ab.dt_set) as last_bid\n    from auction a, auction_bid ab, user_profile up\n    where a.is_deleted = 'N'\n      --and up.is_deleted = 'N'\n      and ab.id_user_profile = up.id_user_profile\n      and ab.id_auction = a.id_auction\n      and _get_auct_seller_id(a.id_auction) = 196\n      and ab.dt_set >= to_timestamp('23.11.2020','DD.MM.YYYY')\n      and ab.dt_set < to_timestamp('25.11.2020','DD.MM.YYYY')\n    group by up.id_profile --, a.id_auction\n    order by id_profile\n;"
+  },
+  {
+    "id": 140,
+    "kind": "letter",
+    "source": "supp/exec_2_supp.sql:6448",
+    "question": "За все время, уникальные вины, выгрузить:\nкатегория, аварийность, марка, модель, вин, продавец, год, пробег, город\n, год последнего перевыствления, статус",
+    "sql": "select vaf.object_type_name, vaf.total, vaf.mark, vaf.model, s1.vin, vaf.year, vaf.mileage, vaf.location\n  , to_char(date_trunc('year',dt_start_last),'YYYY') last_reinst\n  , vaf.status\n  , case when vaf.status in ('SUCCESS','BUYNOW') then  carl_auct.getAuctLeaderCommission2(id_auction_last) else 0 end as commission\n  from v_auct_full vaf,\n(select oav.values#>>'{properties,VIN}' as vin\n  , max(a.id_auction) as id_auction_last\n  , max(a.id_object) as id_object_last\n  , max(a.dt_start) as dt_start_last\n\n      from carl_data.auction a, carl_data.object obj, carl_data.obj_attrib_values oav\n      where a.id_object = obj.id_object\n            and obj.id_object = oav.id_object\n            and a.is_deleted = 'N'\n    group by oav.values#>>'{properties,VIN}') s1\n  where s1.id_auction_last = vaf.id_auction\n  order by id_auction\n;"
+  },
+  {
+    "id": 141,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:6614",
+    "question": "Кто делал ставки в сентябре",
+    "sql": "select up.id_profile, getProfSmartName2(up.id_profile), max(ab.dt_set) as last_bid\n    from auction a, auction_bid ab, user_profile up\n    where a.is_deleted = 'N'\n      --and up.is_deleted = 'N'\n      and ab.id_user_profile = up.id_user_profile\n      and ab.id_auction = a.id_auction\n      -- and a.id_auction = p_id_auction\n      and ab.dt_set >= to_timestamp('01.09.2020','DD.MM.YYYY')\n      and ab.dt_set < to_timestamp('01.10.2020','DD.MM.YYYY')\n    group by up.id_profile --, a.id_auction\n    order by id_profile\n;"
+  },
+  {
+    "id": 142,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:6692",
+    "question": "марка - модель - VIN - dt_change_status - expert_cert (Y/N, если null, то N) - Комиссия (стандартным образом, какая применена, в зависимости от покупателя - юрик или физик)",
+    "sql": "select\n    getAuctObjAttrib(id_auction,'mark') as mark\n  , getAuctObjAttrib(id_auction,'model') as model\n  , coalesce(getAuctObjAttrib(id_auction,'expert_cert'),'N') as expert_cert\n  , getAuctObjAttrib(id_auction,'VIN') as VIN\n  , to_char(dt_change_status, 'DD.MM.YYYY') dt_change_status,\n--    auction_type,\n--     sum(case when a.status in ('SUCCESS', 'BUYNOW')\n--       then 1\n--         else 0 end)                                 as suc,\n--     sum(case when a.status in ('FAILED')\n--       then 1\n--         else 0 end)                                 as nosuc,\n--     sum(case when a.status in ('SUCCESS', 'BUYNOW') then"
+  },
+  {
+    "id": 143,
+    "kind": "note",
+    "source": "supp/exec_2_supp.sql:7114",
+    "question": "Количество единиц куплено, юрик или физик\nпо покупанам",
+    "sql": "-- select * from _getBuyersRepStat2(to_date('01.05.2019','DD.MM.YYYY'), to_date('15.10.2019','DD.MM.YYYY'));"
+  },
+  {
+    "id": 144,
+    "kind": "note",
+    "source": "supp/exec_22.sql:7537",
+    "question": "продажи по неделям.",
+    "sql": "select count(*), date_trunc('week', dt_change_status), max(dt_change_status)\nfrom carl_data.auction a\nwhere status in ('SUCCESS', 'BUYNOW') and is_deleted = 'N'\ngroup by date_trunc('week', dt_change_status)\norder by date_trunc('week', dt_change_status)\n;"
+  },
+  {
+    "id": 145,
+    "kind": "note",
+    "source": "supp/exec_22.sql:7546",
+    "question": "Количество продаж на прошлой неделе",
+    "sql": "select count(*)\nfrom auction a\nwhere status in ('SUCCESS', 'BUYNOW') and is_deleted = 'N' and\n    date_trunc('week', dt_change_status) = date_trunc('week', CURRENT_DATE) - interval '1 week'\n;"
+  },
+  {
+    "id": 146,
+    "kind": "note",
+    "source": "supp/exec_22.sql:7563",
+    "question": "Количество продаж в интервале дат",
+    "sql": "select count(*)\n-- dt_end, dt_change_status\nfrom auction a\nwhere status in ('SUCCESS', 'BUYNOW') and is_deleted = 'N' and\n    date_trunc('day', dt_change_status) >= to_date('01.07.2025', 'DD.MM.YYYY') and\n    date_trunc('day', dt_change_status) < to_date('01.08.2025', 'DD.MM.YYYY')\n-- order by dt_change_status\n-- 502\n;"
+  },
+  {
+    "id": 147,
+    "kind": "note",
+    "source": "supp/exec_22.sql:16218",
+    "question": "список ИНН Юр. лиц и ИП со статусами buyer + OK, где нет WCB: ALD",
+    "sql": "-- select * from who_can_buy;\n-- 64;ALD;ALD для не паршенных лотов\nselect p.id_profile\n        , c.inn\n        , getprofsmartName2(p.id_profile)\n        , coalesce((parameters#>>'{lock,locked}')::boolean,false) as locked\n    -- , p.parameters#>>'{lock,who_can_buy_old}' as who_can_buy_old\n    from profile p, company c\n    where p.id_company = c.id_company\n        and hasRole(p.id_profile, 'buyer') = 'Y'\n        and p.status = 'ok'\n        and ((who_can_buy & 64) = 0 or (coalesce((parameters#>>'{lock,locked}')::boolean,false)\n        and ( ((parameters#>>'{lock,who_can_buy_old}')::bigint) & 64) = 0))\n        and p.is_deleted = 'N'\n        and c.is_deleted = 'N'\n;"
+  },
+  {
+    "id": 148,
+    "kind": "letter",
+    "source": "supp/exec_22.sql:19909",
+    "question": "Сколько лотов в %, переведенных в success за период, имеют серию и номер СТС\nи сколько из них имеет прикрепленные файлы ПТС, тоже в %?\nНужны 6 цифр за Май, Июнь и Июль.",
+    "sql": "select a.id_auction, a.parameters\n  from auction a where 2=2\n    -- dt_active >= to_date('12.04.2021','DD.MM.YYYY')\n    and (a.parameters#>>'{has_pts_images}')::boolean\n;"
+  },
+  {
+    "id": 149,
+    "kind": "note",
+    "source": "supp/exec_22.sql:24817",
+    "question": "Кто смотрел лоты продавца ip 813",
+    "sql": "select\n  _get_auct_seller_id(an.id_auction),\n  a.id_auction,\n  getProfsmartname2(id_profile) who_see_prof,\n  getusersmartname(an.id_user)  who_see_name,\n  dt_set                        dt_view,\n  ip\nfrom auction_nview an, auction a\nwhere a.id_auction = an.id_auction -- and  id_auction = 34714\n      and _get_auct_seller_id(an.id_auction) in (813)\n      -- and status = 'ACTIVE'\n      --     and dt_set between to_timestamp('29.09.2020 09:00:00','DD.MM.YYYY HH24:MI:SS')\n      and a.dt_end > to_timestamp('06.12.2021 00:00:00', 'DD.MM.YYYY HH24:MI:SS')\n--and an.dt_set < to_timestamp('09.09.2020 00:00:00','DD.MM.YYYY HH24:MI:SS')\norder by _get_auct_seller_id(an.id_auction), a.id_auction, id_auction_nview desc;"
+  },
+  {
+    "id": 150,
+    "kind": "skip",
+    "source": "supp/exec_22.sql:32657",
+    "question": "список профилей для лог домена",
+    "sql": "create function carl_prof.getProfList()\nSELECT id_profile, prof_type, name, name2, is_default, status, id_user_owner, bal_sum, bal_res, is_vip, roles\nfrom getproflistbyuserid(57475);\ngetProfDomainInfo\nselect up.id_user, p.id_profile\n, carl_prof._get_prof_log_domain(p.id_profile) log_domain\n, (p.parameters ? 'employer') promo\n, p.id_individual is not null indiv\nfrom\nuser_profile up, profile p\nleft join company c on (p.id_company = c.id_company)\nleft join individual i on (i.id_individual = p.id_individual)\nwhere ( up.id_profile = p.id_profile )\n-- and (3 is null or up.id_user = 3)\nand up.id_user in (37485, 48552)\nand up.is_deleted = 'N' and p.is_deleted = 'N'\nand\t(up.dt_expire is null or up.dt_expire >= current_timestamp)\norder by p.status desc, name\n;\nselect getProfList(37485, 'carlink', null);\nselect getProfList(37485, 'carlink24', null);\nselect getProfList(37485, 'playcar', null);\nselect getProfList(48552, 'carlink24', null);\nselect getProfList(48552, 'carlink', null);\nselect carl_prof.getUserProfileDataAllJ(1495, 691)#>>'{is_broker}';\nselect carl_prof.getUserProfileDataJ(35, 11)#>>'{is_broker}';\nselect * from broker;\nselect * from user_profile where id_profile = 11;\nselect * from profile where id_profile = 195;\nSELECT addProfileToBroker(327,1);\nselect parameters#>>'{lock,who_can_buy_old}' from profile\n;\nselect reg_domain from verify_code;\nselect getLogDomainInfo('cng');\nselect row_to_json(r) from (\nselect\nb.log_domain,\nid_broker,\nid_profile_owner\nfrom broker_domain bd, broker b\nwhere\nb.log_domain = bd.log_domain and bd.phys_domain = 'playcar.ru' -- 'w2.carlinkmail.ru' --p_phys_domain\n) r\n-- … обрезано"
+  },
+  {
+    "id": 151,
+    "kind": "letter",
+    "source": "supp/exec_22.sql:35465",
+    "question": "сколько машин купили в августе физы",
+    "sql": "203 - юры\n132 - физы\n\n select count(*)                      --as cnt,\n  from auction a, auction_bid ab, user_profile up, profile p\n  where p.id_profile = up.id_profile\n        and up.id_user_profile = ab.id_user_profile\n        and a.id_auction = ab.id_auction\n        and ab.bid_status = 'LEAD'\n        and a.status in ('SUCCESS','BUYNOW')\n        and a.is_deleted = 'N'\n        and ab.is_deleted = 'N'\n        and p.id_individual is not null\n--        and p.id_individual is null\n--        and p.is_deleted = 'N'\n       and a.dt_change_status >= to_timestamp('01.08.2020', 'DD.MM.YYYY')\n       and a.dt_change_status < to_timestamp('01.09.2020', 'DD.MM.YYYY')\n--         and a.dt_end < to_timestamp('01.09.2020', 'DD.MM.YYYY')\n--         and a.dt_end >= to_timestamp('01.08.2020', 'DD.MM.YYYY')\n--  group by up.id_profile, p.id_profile --, date_trunc('month', a.dt_end), auct_type\n;"
+  }
+]

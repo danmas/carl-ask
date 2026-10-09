@@ -1,0 +1,2074 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>carl-ask | Аналитический помощник к витринам carl_an</title>
+  <style>
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, Monaco, monospace;
+
+      /* Light Theme */
+      --bg-page: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-surface-elevated: #f1f5f9;
+      --bg-surface-active: #e2e8f0;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --border: #e2e8f0;
+      --border-focus: #3b82f6;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-light: #eff6ff;
+      --accent-text: #1d4ed8;
+      --success-bg: #ecfdf5;
+      --success-border: #a7f3d0;
+      --success-text: #065f46;
+      --warning-bg: #fffbeb;
+      --warning-border: #fde68a;
+      --warning-text: #92400e;
+      --danger-bg: #fef2f2;
+      --danger-border: #fecaca;
+      --danger-text: #991b1b;
+      --code-bg: #0f172a;
+      --code-text: #f8fafc;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+      --radius-sm: 5px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    [data-theme="light"] {
+      --bg-page: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-surface-elevated: #f1f5f9;
+      --bg-surface-active: #e2e8f0;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --border: #e2e8f0;
+      --border-focus: #3b82f6;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-light: #eff6ff;
+      --accent-text: #1d4ed8;
+      --success-bg: #ecfdf5;
+      --success-border: #a7f3d0;
+      --success-text: #065f46;
+      --warning-bg: #fffbeb;
+      --warning-border: #fde68a;
+      --warning-text: #92400e;
+      --danger-bg: #fef2f2;
+      --danger-border: #fecaca;
+      --danger-text: #991b1b;
+      --code-bg: #0f172a;
+      --code-text: #f8fafc;
+      color-scheme: light;
+    }
+
+    [data-theme="dark"] {
+      --bg-page: #0a0f1d;
+      --bg-surface: #111827;
+      --bg-surface-elevated: #1e293b;
+      --bg-surface-active: #334155;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border: #1e293b;
+      --border-focus: #60a5fa;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --accent-light: #1e3a8a33;
+      --accent-text: #93c5fd;
+      --success-bg: #064e3b33;
+      --success-border: #047857;
+      --success-text: #34d399;
+      --warning-bg: #78350f33;
+      --warning-border: #b45309;
+      --warning-text: #fde047;
+      --danger-bg: #7f1d1d33;
+      --danger-border: #b91c1c;
+      --danger-text: #fca5a5;
+      --code-bg: #030712;
+      --code-text: #e2e8f0;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 12px 16px 28px;
+      flex: 1;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 15px;
+      box-shadow: 0 2px 6px rgba(59, 130, 246, 0.35);
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.2;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Mode Switcher Tabs */
+    .tab-group {
+      display: flex;
+      background: var(--bg-surface-elevated);
+      padding: 2px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      padding: 4px 11px;
+      font-size: 12px;
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      border-radius: calc(var(--radius-md) - 2px);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+      font-weight: 600;
+    }
+
+    /* Theme Toggle */
+    .theme-toggle-btn {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 4px 9px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      transition: all 0.15s ease;
+    }
+
+    .theme-toggle-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-focus);
+    }
+
+    /* Sticky Stepper */
+    .stepper {
+      position: sticky;
+      top: 8px;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding: 8px 16px;
+      background: var(--bg-surface);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
+      overflow-x: auto;
+      gap: 10px;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .step-badge {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .step-item.active {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .step-item.active .step-badge {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-light);
+    }
+
+    .step-item.completed {
+      color: var(--text-secondary);
+    }
+
+    .step-item.completed .step-badge {
+      background: var(--success-bg);
+      color: var(--success-text);
+      border-color: var(--success-border);
+    }
+
+    .step-divider {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+      min-width: 14px;
+    }
+
+    /* Alerts & Banners */
+    .banner {
+      padding: 9px 13px;
+      border-radius: var(--radius-md);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      border: 1px solid transparent;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .banner.busy {
+      background: var(--accent-light);
+      border-color: var(--accent);
+      color: var(--accent-text);
+    }
+
+    .banner.error {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger-text);
+      white-space: pre-wrap;
+    }
+
+    .banner.warning {
+      background: var(--warning-bg);
+      border-color: var(--warning-border);
+      color: var(--warning-text);
+    }
+
+    .spinner {
+      width: 15px;
+      height: 15px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards & Containers */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Forms & Inputs */
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 5px;
+    }
+
+    textarea, input, select {
+      width: 100%;
+      font-family: inherit;
+      font-size: 13.5px;
+      color: var(--text-primary);
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 7px 11px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      outline: none;
+    }
+
+    input[type="date"] {
+      cursor: pointer;
+    }
+
+    textarea:focus, input:focus, select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 56px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 1px 3px rgba(37, 99, 235, 0.2);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface-elevated);
+      color: var(--text-primary);
+      border-color: var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--bg-surface-active);
+      border-color: var(--text-muted);
+    }
+
+    .btn-danger {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border-color: var(--danger-border);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Prompt Chips */
+    .chips-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      margin-bottom: 4px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      padding: 3px 10px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .chip:hover {
+      background: var(--bg-surface-active);
+      color: var(--text-primary);
+      border-color: var(--border-focus);
+    }
+
+    .date-preset-chip {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .date-preset-chip:hover {
+      background: var(--bg-surface-active);
+      color: var(--text-primary);
+      border-color: var(--border-focus);
+    }
+
+    .date-field-label {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+      display: block;
+    }
+
+    /* User View Sections */
+    .user-question-box {
+      background: var(--bg-surface-elevated);
+      border-left: 3px solid var(--accent);
+      padding: 8px 12px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      margin-bottom: 10px;
+    }
+
+    .user-question-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+      font-weight: 600;
+    }
+
+    .user-question-text {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .reasoning-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .reasoning-state {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .timeline {
+      margin-bottom: 10px;
+    }
+
+    .timeline-turn {
+      padding: 8px 12px;
+      background: var(--bg-surface-elevated);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .timeline-round {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .timeline-q {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      padding-left: 6px;
+      border-left: 2px solid var(--border);
+    }
+
+    .timeline-q strong {
+      color: var(--text-primary);
+    }
+
+    .plain-box {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: var(--text-primary);
+    }
+
+    .assumptions-list {
+      margin-top: 8px;
+      padding-left: 16px;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+    }
+
+    .assumptions-list li {
+      margin-bottom: 2px;
+    }
+
+    .code-container {
+      position: relative;
+      background: var(--code-bg);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      font-size: 11.5px;
+      font-family: var(--font-mono);
+    }
+
+    pre.code-block {
+      padding: 10px 14px;
+      color: var(--code-text);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.45;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e2e8f0;
+      border: none;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s ease;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .gate-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .rejection-details {
+      margin-top: 8px;
+      width: 100%;
+    }
+
+    /* Dev View Specifics */
+    .dev-grid {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 6px 12px;
+      font-size: 12.5px;
+      margin-bottom: 12px;
+      background: var(--bg-surface-elevated);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .dev-grid .k {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .dev-grid .v {
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      word-break: break-all;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-phase {
+      background: var(--accent-light);
+      color: var(--accent-text);
+      border: 1px solid var(--accent);
+    }
+
+    #debug-count {
+      text-transform: none;
+      letter-spacing: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .badge-ready {
+      background: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid var(--success-border);
+    }
+
+    .badge-failed {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border: 1px solid var(--danger-border);
+    }
+
+    details.dev-accordion {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--bg-surface);
+    }
+
+    details.dev-accordion summary {
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      background: var(--bg-surface-elevated);
+      user-select: none;
+    }
+
+    details.dev-accordion[open] summary {
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    details.dev-accordion .content {
+      padding: 10px 14px;
+    }
+
+    .debug-tools {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .debug-tools input {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .debug-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .debug-table th {
+      text-align: left;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .debug-table td {
+      vertical-align: top;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .exec-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .exec-bar select { min-width: 240px; flex: 1; }
+
+    .result-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .result-wrap {
+      overflow: auto;
+      max-height: 420px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .result-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+
+    .result-table th,
+    .result-table td {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      vertical-align: top;
+    }
+
+    .result-table th {
+      position: sticky;
+      top: 0;
+      background: var(--bg-surface-elevated);
+    }
+
+    .null-val { color: var(--text-muted); font-style: italic; }
+
+    .exec-error {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--danger-border);
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border-radius: var(--radius-sm);
+      white-space: pre-wrap;
+    }
+
+    .debug-num {
+      width: 36px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .debug-q {
+      white-space: pre-wrap;
+      font-size: 13.5px;
+    }
+
+    .debug-meta {
+      margin-top: 4px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .debug-sql {
+      margin-top: 8px;
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    .debug-check {
+      width: 118px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .debug-check input {
+      width: auto;
+      margin-right: 4px;
+    }
+
+    /* Helper utility classes */
+    .hidden { display: none !important; }
+    .mt-1 { margin-top: 4px; }
+    .mt-2 { margin-top: 8px; }
+    .mb-1 { margin-bottom: 4px; }
+    .mb-2 { margin-bottom: 8px; }
+    .text-sm { font-size: 12.5px; }
+    .text-muted { color: var(--text-secondary); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      padding: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    footer code {
+      font-family: var(--font-mono);
+      background: var(--bg-surface-elevated);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-icon">C</div>
+        <div>
+          <h1 class="brand-title">carl-ask</h1>
+          <p class="brand-subtitle">Аналитические вопросы к витринам данных <code>carl_an</code></p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <!-- Mode Tabs -->
+        <div class="tab-group" role="tablist">
+          <button type="button" class="tab-btn active" id="tab-user" role="tab" aria-selected="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Пользователь
+          </button>
+          <button type="button" class="tab-btn" id="tab-dev" role="tab" aria-selected="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Разработчик
+          </button>
+          <button type="button" class="tab-btn" id="tab-debug" role="tab" aria-selected="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            Отладка
+          </button>
+        </div>
+
+        <!-- Theme Toggle -->
+        <button type="button" class="theme-toggle-btn" id="theme-toggle" title="Переключить тему">
+          <svg class="sun-icon hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="moon-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <span id="theme-text">Тема</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Global Banners -->
+    <div id="busy" class="banner busy hidden" role="status">
+      <div class="spinner"></div>
+      <span id="busy-text">Модель разбирает вопрос…</span>
+    </div>
+
+    <div id="error" class="banner error hidden" role="alert"></div>
+
+    <!-- Stepper (Sticky at top) -->
+    <div id="stepper" class="stepper hidden">
+      <div class="step-item" id="step-1">
+        <div class="step-badge">1</div>
+        <span>Вопрос</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step-item" id="step-2">
+        <div class="step-badge">2</div>
+        <span>Уточнение</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step-item" id="step-3">
+        <div class="step-badge">3</div>
+        <span>Согласование</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step-item" id="step-4">
+        <div class="step-badge">4</div>
+        <span>Результат</span>
+      </div>
+    </div>
+
+    <!-- Question Input Form (Shared / Always Available) -->
+    <div class="card" id="ask-card">
+      <form id="ask">
+        <label for="utterance">Задайте вопрос на естественном языке</label>
+        <textarea id="utterance" name="utterance" placeholder="Например: Сколько лотов продано за прошлый месяц?" autofocus></textarea>
+        
+        <div class="chips-label">Примеры частых запросов:</div>
+        <div class="chips">
+          <button type="button" class="chip" data-query="сколько продано">Сколько продано</button>
+          <button type="button" class="chip" data-query="список активных лотов">Список активных лотов</button>
+          <button type="button" class="chip" data-query="сколько ставок сделал покупатель 100">Ставки покупателя 100</button>
+          <button type="button" class="chip" data-query="список покупателей по дате регистрации">Покупатели по дате регистрации</button>
+          <button type="button" class="chip" data-query="средняя длительность экспозиции">Средняя длительность экспозиции</button>
+        </div>
+
+        <label class="reasoning-toggle" for="reasoning">
+          <input type="checkbox" id="reasoning">
+          Рассуждение модели
+        </label>
+        <p class="text-sm text-muted">Выключено: запрос с <code>reasoning_effort=none</code>. Включите, чтобы сравнить ответ с рассуждением. На одном диалоге режим не меняется.</p>
+
+        <div style="margin-top: 10px;">
+          <button type="submit" class="btn btn-primary" id="btn-submit-ask">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Разобрать вопрос
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Active Dialogue Content Container -->
+    <div id="view" class="hidden">
+
+      <!-- ============================================== -->
+      <!-- USER MODE VIEW CONTAINER                       -->
+      <!-- ============================================== -->
+      <div id="user-mode-container">
+        <!-- Current Question Display -->
+        <div class="user-question-box">
+          <div class="user-question-title">Текущий вопрос</div>
+          <div class="user-question-text" id="user-utterance-text">—</div>
+          <div class="reasoning-state" id="reasoning-state">—</div>
+        </div>
+
+        <!-- Clarifying History (Previous turns) -->
+        <div id="user-turns-card" class="card hidden">
+          <div class="card-header">
+            <h2 class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Пройденные уточнения
+            </h2>
+          </div>
+          <div id="user-turns" class="timeline"></div>
+        </div>
+
+        <!-- Active Clarifying Questions (Phase: clarifying) -->
+        <div id="user-clarifying-card" class="card hidden">
+          <div class="card-header">
+            <h2 class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Требуются уточнения
+            </h2>
+          </div>
+          <p class="text-sm text-muted mb-2">Для точного формирования SQL выберите необходимые параметры:</p>
+          <form id="user-answers-form"></form>
+        </div>
+
+        <!-- Confirmation Card (Phase: awaiting_confirm) -->
+        <div id="user-confirm-card" class="card hidden">
+          <div class="card-header">
+            <h2 class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Понимание запроса
+            </h2>
+          </div>
+          <div class="plain-box" id="user-plain-text">—</div>
+
+          <div id="user-assumptions-box" class="hidden mb-2">
+            <div class="text-sm" style="font-weight: 600; color: var(--text-secondary);">Принятые допущения:</div>
+            <ul class="assumptions-list" id="user-assumptions-list"></ul>
+          </div>
+
+          <div class="gate-actions">
+            <button type="button" class="btn btn-primary" id="user-btn-confirm">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Всё верно, сформировать SQL
+            </button>
+            <button type="button" class="btn btn-secondary" id="user-btn-toggle-reject">
+              Уточнить / исправить
+            </button>
+          </div>
+
+          <div id="user-rejection-box" class="rejection-details hidden">
+            <label for="user-reject-input" class="mt-2">Что нужно скорректировать?</label>
+            <textarea id="user-reject-input" placeholder="Например: считать только за 2023 год, а не за всё время"></textarea>
+            <div class="mt-1">
+              <button type="button" class="btn btn-danger btn-sm" id="user-btn-reject">Отправить исправление</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result / SQL Ready (Phase: sql_ready) -->
+        <div id="user-result-card" class="card hidden">
+          <div class="card-header">
+            <h2 class="card-title" style="color: var(--success-text);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Можно посчитать
+            </h2>
+            <span class="badge badge-ready">Готово к выполнению</span>
+          </div>
+
+          <p class="text-sm text-muted mb-1">Описание логики выборки:</p>
+          <div class="plain-box mb-2" id="user-result-plain">—</div>
+
+          <div class="exec-bar">
+            <label for="user-connection">Коннекция</label>
+            <select id="user-connection"></select>
+            <button type="button" class="btn btn-primary btn-sm" id="user-execute">Выполнить</button>
+          </div>
+          <div id="user-execution"></div>
+        </div>
+
+        <!-- Refusal / Failure (Phase: failed) -->
+        <div id="user-failed-card" class="card hidden">
+          <div class="card-header">
+            <h2 class="card-title" style="color: var(--danger-text);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              Запрос не может быть выполнен
+            </h2>
+            <span class="badge badge-failed">Отказ</span>
+          </div>
+          <div class="plain-box" id="user-failed-reason">—</div>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- DEVELOPER MODE VIEW CONTAINER                  -->
+      <!-- ============================================== -->
+      <div id="dev-mode-container" class="hidden">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              Служебное состояние диалога
+            </h2>
+            <span id="dev-phase-badge" class="badge badge-phase">DRAFT</span>
+          </div>
+
+          <!-- Developer Grid (Contains required "Фаза" text and fields) -->
+          <div class="dev-grid" id="fields"></div>
+
+          <h3 class="card-title mt-2 mb-1">Исходный вопрос</h3>
+          <p id="utterance-shown" class="text-sm mb-2">—</p>
+
+          <h3 class="card-title mt-2 mb-1">Что уже спросили (Turns)</h3>
+          <div id="turns" class="timeline"></div>
+
+          <h3 class="card-title mt-2 mb-1" id="current-q">Форма ответов (Сейчас)</h3>
+          <form id="answers" class="mb-2"></form>
+
+          <h3 class="card-title mt-2 mb-1">Запрос словами</h3>
+          <p id="plain" class="plain-box">—</p>
+
+          <h3 class="card-title mt-2 mb-1">Карточка запроса (JSON)</h3>
+          <pre id="card" class="code-block" style="background: var(--bg-surface-elevated); color: var(--text-primary); border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 10px;"></pre>
+
+          <form id="gate" class="card mb-2" style="background: var(--bg-surface-elevated); border: 1px dashed var(--border); padding: 10px 14px;">
+            <div class="card-title mb-1">Управление фазой (Gate)</div>
+            <button type="button" class="btn btn-primary btn-sm" id="confirm">Подтвердить</button>
+            
+            <label for="reject-text" class="mt-2">Текст отказа (Rejection)</label>
+            <textarea id="reject-text" placeholder="Укажите замечание к карточке..."></textarea>
+            <button type="button" class="btn btn-danger btn-sm mt-1" id="reject">Отклонить карточку</button>
+          </form>
+
+          <h3 class="card-title mt-2 mb-1">Выполнение</h3>
+          <pre id="sql" class="code-block hidden"></pre>
+          <div class="exec-bar">
+            <label for="dev-connection">Коннекция</label>
+            <select id="dev-connection"></select>
+            <button type="button" class="btn btn-primary btn-sm" id="dev-execute">Выполнить</button>
+          </div>
+          <div id="dev-execution"></div>
+
+          <details class="dev-accordion">
+            <summary>Полный снимок состояния (Raw Snapshot JSON)</summary>
+            <div class="content">
+              <pre id="raw" class="code-block" style="background: var(--code-bg); max-height: 360px; overflow: auto;"></pre>
+            </div>
+          </details>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="debug-panel" class="card hidden">
+      <div class="card-header">
+        <h2 class="card-title">Запросы из комментариев SQL</h2>
+        <span id="debug-count" class="badge badge-phase">…</span>
+      </div>
+      <div class="debug-tools">
+        <input id="debug-search" type="search" placeholder="Поиск по вопросу или SQL">
+        <select id="debug-kind">
+          <option value="">все типы</option>
+          <option value="letter">письма</option>
+          <option value="note">пометы</option>
+          <option value="skip">мимо</option>
+        </select>
+        <select id="debug-verified">
+          <option value="">проверка: все</option>
+          <option value="yes">проверено</option>
+          <option value="no">не проверено</option>
+        </select>
+      </div>
+      <table class="debug-table">
+        <thead>
+          <tr>
+            <th class="debug-num">#</th>
+            <th>Запрос и SQL под ним</th>
+            <th class="debug-check">Проверено</th>
+          </tr>
+        </thead>
+        <tbody id="debug-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    <p>carl-ask &bull; Локальный аналитический контур &bull; Журнал шагов: <code>logs/journal.json</code> &bull; В базу уходит только принятый SQL</p>
+  </footer>
+
+  <script>
+    let id = null;
+    let snapshot = null;
+    let connections = [];
+    let activeMode = (location.pathname === '/dev' || new URLSearchParams(location.search).get('mode') === 'dev')
+      ? 'dev'
+      : (localStorage.getItem('carl_ask_mode') || 'user');
+
+    // DOM Elements
+    const view = document.querySelector('#view');
+    const askCard = document.querySelector('#ask-card');
+    const debugPanel = document.querySelector('#debug-panel');
+    const userModeContainer = document.querySelector('#user-mode-container');
+    const devModeContainer = document.querySelector('#dev-mode-container');
+    const tabUser = document.querySelector('#tab-user');
+    const tabDev = document.querySelector('#tab-dev');
+    const tabDebug = document.querySelector('#tab-debug');
+    const themeToggle = document.querySelector('#theme-toggle');
+    const fields = document.querySelector('#fields');
+    const stepper = document.querySelector('#stepper');
+
+    const lines = [
+      ['phase', 'Фаза'],
+      ['round', 'Раунд'],
+      ['missing', 'Пустые слоты'],
+      ['assumptions', 'Допущения'],
+      ['refusal', 'Отказ витрины'],
+      ['validator_errors', 'Ошибки контролёра'],
+      ['block', 'Блок'],
+      ['reasoning', 'Рассуждение'],
+      ['model', 'Модель'],
+      ['log', 'Лента переходов'],
+    ];
+
+    // Theme Management
+    function initTheme() {
+      const savedTheme = localStorage.getItem('carl_ask_theme');
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+      applyTheme(theme);
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('carl_ask_theme', theme);
+      const sunIcon = document.querySelector('.sun-icon');
+      const moonIcon = document.querySelector('.moon-icon');
+      const themeText = document.querySelector('#theme-text');
+      if (theme === 'dark') {
+        sunIcon.classList.remove('hidden');
+        moonIcon.classList.add('hidden');
+        themeText.textContent = 'Тёмная';
+      } else {
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+        themeText.textContent = 'Светлая';
+      }
+    }
+
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+
+    // Mode Switching
+    function setMode(mode) {
+      activeMode = mode;
+      localStorage.setItem('carl_ask_mode', mode);
+      const tabs = [
+        [tabUser, 'user'],
+        [tabDev, 'dev'],
+        [tabDebug, 'debug'],
+      ];
+      for (const [el, name] of tabs) {
+        const on = name === mode;
+        el.classList.toggle('active', on);
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+      }
+      const debugging = mode === 'debug';
+      askCard.classList.toggle('hidden', debugging);
+      debugPanel.classList.toggle('hidden', !debugging);
+      if (debugging) {
+        view.classList.add('hidden');
+        stepper.classList.add('hidden');
+        loadDebug();
+        return;
+      }
+      userModeContainer.classList.toggle('hidden', mode !== 'user');
+      devModeContainer.classList.toggle('hidden', mode !== 'dev');
+      if (snapshot) {
+        view.classList.remove('hidden');
+        updateStepper(snapshot.phase);
+      } else {
+        view.classList.add('hidden');
+        stepper.classList.add('hidden');
+      }
+    }
+
+    tabUser.addEventListener('click', () => setMode('user'));
+    tabDev.addEventListener('click', () => setMode('dev'));
+    tabDebug.addEventListener('click', () => setMode('debug'));
+
+    const kindLabel = { letter: 'письмо', note: 'помета', skip: 'мимо' };
+    let corpus = null;
+
+    function esc(value) {
+      return String(value).replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+    }
+
+    function renderDebug() {
+      const body = document.querySelector('#debug-body');
+      const q = document.querySelector('#debug-search').value.trim().toLowerCase();
+      const kind = document.querySelector('#debug-kind').value;
+      const verifiedFilter = document.querySelector('#debug-verified').value;
+      const verified = corpus.verified || {};
+      const rows = corpus.items.filter((item) => {
+        if (kind && item.kind !== kind) return false;
+        const on = verified[String(item.id)] === true;
+        if (verifiedFilter === 'yes' && !on) return false;
+        if (verifiedFilter === 'no' && on) return false;
+        if (!q) return true;
+        return `${item.question}\n${item.sql}`.toLowerCase().includes(q);
+      });
+      document.querySelector('#debug-count').textContent = `${rows.length} из ${corpus.items.length}`;
+      body.replaceChildren();
+      for (const item of rows) {
+        const tr = document.createElement('tr');
+        const sql = item.sql
+          ? `<pre class="code-block debug-sql">${esc(item.sql)}</pre>`
+          : `<p class="debug-meta">SQL под комментарием нет</p>`;
+        tr.innerHTML = `
+          <td class="debug-num">${item.id}</td>
+          <td>
+            <div class="debug-q">${esc(item.question)}</div>
+            <div class="debug-meta">${esc(item.source)} · ${kindLabel[item.kind] || item.kind}</div>
+            ${sql}
+          </td>
+          <td class="debug-check">
+            <label>
+              <input type="checkbox" data-id="${item.id}" ${verified[String(item.id)] === true ? 'checked' : ''}>
+              проверено
+            </label>
+          </td>`;
+        body.appendChild(tr);
+      }
+    }
+
+    async function loadDebug() {
+      const body = document.querySelector('#debug-body');
+      try {
+        if (!corpus) {
+          const response = await fetch('/api/corpus');
+          if (!response.ok) throw new Error('корпус не открылся');
+          corpus = await response.json();
+          corpus.verified = corpus.verified && typeof corpus.verified === 'object' ? corpus.verified : {};
+        }
+        renderDebug();
+      } catch (error) {
+        document.querySelector('#debug-count').textContent = 'нет данных';
+        body.replaceChildren();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="3">${esc(error.message)}. Обнови страницу. Если снова пусто — сервер запущен без /api/corpus, его надо перезапустить.</td>`;
+        body.appendChild(tr);
+      }
+    }
+
+    document.querySelector('#debug-body').addEventListener('change', async (event) => {
+      const box = event.target;
+      if (!box.matches('input[type="checkbox"]')) return;
+      const idNum = box.dataset.id;
+      box.disabled = true;
+      try {
+        const response = await fetch(`/api/corpus/${idNum}/verified`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ verified: box.checked }),
+        });
+        if (!response.ok) throw new Error('не записал проверку');
+        corpus.verified[idNum] = box.checked;
+        renderDebug();
+      } catch (error) {
+        box.checked = !box.checked;
+        fail(error);
+      } finally {
+        box.disabled = false;
+      }
+    });
+
+    for (const idSel of ['#debug-search', '#debug-kind', '#debug-verified']) {
+      document.querySelector(idSel).addEventListener('input', () => {
+        if (corpus) renderDebug();
+      });
+      document.querySelector(idSel).addEventListener('change', () => {
+        if (corpus) renderDebug();
+      });
+    }
+
+    // Example Chips
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const query = chip.dataset.query;
+        if (query) {
+          const textarea = document.querySelector('#utterance');
+          textarea.value = query;
+          textarea.focus();
+        }
+      });
+    });
+
+    function show(name, value) {
+      const text = value == null || value === '' ? '—' : typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+      return `<div class="k">${name}</div><div class="v">${text}</div>`;
+    }
+
+    function addSpan(parent, question) {
+      const row = document.createElement('div');
+      row.style.display = 'grid';
+      row.style.gridTemplateColumns = '1fr 1fr';
+      row.style.gap = '8px';
+      row.style.marginTop = '4px';
+
+      for (const name of ['from', 'to']) {
+        const select = document.createElement('select');
+        select.dataset.slot = question.slot;
+        select.dataset.part = name;
+        const empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = name === 'from' ? '— Выберите дату от —' : '— Выберите дату до —';
+        select.appendChild(empty);
+        for (const option of question.control.options || []) {
+          const item = document.createElement('option');
+          item.value = option.value;
+          item.textContent = option.label;
+          select.appendChild(item);
+        }
+        row.appendChild(select);
+      }
+      parent.appendChild(row);
+    }
+
+    function addSelect(parent, question) {
+      const select = document.createElement('select');
+      select.dataset.slot = question.slot;
+      select.dataset.control = question.control.type;
+      for (const option of question.control.options || []) {
+        const item = document.createElement('option');
+        item.value = option.value;
+        item.textContent = option.label;
+        select.appendChild(item);
+      }
+      parent.appendChild(select);
+    }
+
+    // Helper to format Date as YYYY-MM-DD
+    function fmtDate(d) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function applyPeriodPreset(preset, fromInput, toInput) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth(); // 0-indexed
+
+      if (preset === 'prev_month') {
+        const from = new Date(y, m - 1, 1);
+        const to = new Date(y, m, 1);
+        fromInput.value = fmtDate(from);
+        toInput.value = fmtDate(to);
+      } else if (preset === 'cur_month') {
+        const from = new Date(y, m, 1);
+        const to = new Date(y, m + 1, 1);
+        fromInput.value = fmtDate(from);
+        toInput.value = fmtDate(to);
+      } else if (preset === 'prev_year') {
+        fromInput.value = `${y - 1}-01-01`;
+        toInput.value = `${y}-01-01`;
+      } else if (preset === 'cur_year') {
+        fromInput.value = `${y}-01-01`;
+        toInput.value = `${y + 1}-01-01`;
+      }
+    }
+
+    function buildQuestionsForm(form, questions) {
+      form.innerHTML = '';
+      for (const question of questions || []) {
+        const wrap = document.createElement('div');
+        wrap.style.marginBottom = '10px';
+
+        const label = document.createElement('label');
+        label.textContent = question.text;
+        wrap.appendChild(label);
+
+        const control = question.control || { type: 'text' };
+        if (control.type === 'select') {
+          addSelect(wrap, question);
+        } else if (control.type === 'span') {
+          addSpan(wrap, question);
+        } else if (control.type === 'period') {
+          addSelect(wrap, question);
+
+          // Fast date presets
+          const presetsRow = document.createElement('div');
+          presetsRow.style.display = 'flex';
+          presetsRow.style.flexWrap = 'wrap';
+          presetsRow.style.gap = '6px';
+          presetsRow.style.marginTop = '6px';
+          presetsRow.style.marginBottom = '6px';
+          presetsRow.style.alignItems = 'center';
+
+          const presetsLabel = document.createElement('span');
+          presetsLabel.style.fontSize = '11px';
+          presetsLabel.style.color = 'var(--text-muted)';
+          presetsLabel.textContent = 'Быстрый выбор:';
+          presetsRow.appendChild(presetsLabel);
+
+          const presets = [
+            { id: 'prev_month', label: 'Прошлый месяц' },
+            { id: 'cur_month', label: 'Этот месяц' },
+            { id: 'prev_year', label: 'Прошлый год' },
+            { id: 'cur_year', label: 'Этот год' },
+          ];
+
+          const fromInput = document.createElement('input');
+          fromInput.type = 'date';
+          fromInput.dataset.slot = question.slot;
+          fromInput.dataset.part = 'from';
+
+          const toInput = document.createElement('input');
+          toInput.type = 'date';
+          toInput.dataset.slot = question.slot;
+          toInput.dataset.part = 'to';
+
+          for (const p of presets) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'date-preset-chip';
+            btn.textContent = p.label;
+            btn.addEventListener('click', () => applyPeriodPreset(p.id, fromInput, toInput));
+            presetsRow.appendChild(btn);
+          }
+          wrap.appendChild(presetsRow);
+
+          // Date inputs row (Native Calendar Picker)
+          const dateRow = document.createElement('div');
+          dateRow.style.display = 'grid';
+          dateRow.style.gridTemplateColumns = '1fr 1fr';
+          dateRow.style.gap = '8px';
+
+          const colFrom = document.createElement('div');
+          const lblFrom = document.createElement('label');
+          lblFrom.className = 'date-field-label';
+          lblFrom.textContent = 'С даты (включительно):';
+          colFrom.appendChild(lblFrom);
+          colFrom.appendChild(fromInput);
+
+          const colTo = document.createElement('div');
+          const lblTo = document.createElement('label');
+          lblTo.className = 'date-field-label';
+          lblTo.textContent = 'По дату (не включая):';
+          colTo.appendChild(lblTo);
+          colTo.appendChild(toInput);
+
+          dateRow.appendChild(colFrom);
+          dateRow.appendChild(colTo);
+          wrap.appendChild(dateRow);
+        } else if (control.type === 'thresholds') {
+          const input = document.createElement('input');
+          input.dataset.slot = question.slot;
+          input.placeholder = 'Например: 0 40000 0 80000 (физ_мин физ_макс ип_мин ип_макс)';
+          wrap.appendChild(input);
+        } else {
+          const input = document.createElement('input');
+          input.dataset.slot = question.slot;
+          input.placeholder = 'Введите значение...';
+          wrap.appendChild(input);
+        }
+        form.appendChild(wrap);
+      }
+      if ((questions || []).length) {
+        const button = document.createElement('button');
+        button.type = 'submit';
+        button.className = 'btn btn-primary';
+        button.textContent = 'Отправить ответы';
+        form.appendChild(button);
+      }
+    }
+
+    function updateStepper(phase) {
+      stepper.classList.remove('hidden');
+      const s1 = document.querySelector('#step-1');
+      const s2 = document.querySelector('#step-2');
+      const s3 = document.querySelector('#step-3');
+      const s4 = document.querySelector('#step-4');
+
+      [s1, s2, s3, s4].forEach(s => s.className = 'step-item');
+
+      s1.classList.add('completed');
+
+      if (phase === 'clarifying') {
+        s2.classList.add('active');
+      } else if (phase === 'awaiting_confirm') {
+        s2.classList.add('completed');
+        s3.classList.add('active');
+      } else if (phase === 'sql_ready') {
+        s2.classList.add('completed');
+        s3.classList.add('completed');
+        s4.classList.add('completed', 'active');
+      } else if (phase === 'failed') {
+        s4.classList.add('active');
+      }
+    }
+
+    function draw(next) {
+      snapshot = next;
+      id = next.id;
+      if (activeMode !== 'debug') {
+        view.classList.remove('hidden');
+        updateStepper(next.phase);
+      }
+
+      // --- DEVELOPER VIEW UPDATE ---
+      fields.innerHTML = lines.map(([key, label]) => show(label, next[key])).join('')
+        + show('Слоты', next.slots);
+      document.querySelector('#utterance-shown').textContent = next.utterance || '—';
+      
+      const badge = document.querySelector('#dev-phase-badge');
+      badge.textContent = (next.phase || 'DRAFT').toUpperCase();
+      badge.className = `badge ${next.phase === 'sql_ready' ? 'badge-ready' : next.phase === 'failed' ? 'badge-failed' : 'badge-phase'}`;
+
+      const turns = document.querySelector('#turns');
+      turns.replaceChildren();
+      for (const turn of next.turns || []) {
+        const title = document.createElement('div');
+        title.className = 'timeline-round';
+        title.textContent = `Раунд ${turn.round}`;
+        turns.appendChild(title);
+        for (const item of turn.questions || []) {
+          const line = document.createElement('p');
+          line.className = 'timeline-q';
+          line.innerHTML = `<strong>${item.text}</strong> &rarr; ${item.answer_label}`;
+          turns.appendChild(line);
+        }
+      }
+      if (!(next.turns || []).length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-sm text-muted';
+        empty.textContent = 'Пока ответов нет.';
+        turns.appendChild(empty);
+      }
+
+      document.querySelector('#current-q').classList.toggle('hidden', !(next.questions || []).length);
+      document.querySelector('#plain').textContent = next.card?.plain || '—';
+      document.querySelector('#card').textContent = next.card ? JSON.stringify(next.card, null, 2) : '—';
+      document.querySelector('#sql').textContent = next.sql || '—';
+      document.querySelector('#raw').textContent = JSON.stringify(next, null, 2);
+      renderExecution(document.querySelector('#dev-execution'), next.phase === 'sql_ready' ? next.execution : null);
+
+      buildQuestionsForm(document.querySelector('#answers'), next.questions);
+
+      // --- USER VIEW UPDATE ---
+      document.querySelector('#user-utterance-text').textContent = next.reading || next.card?.plain || '—';
+      const model = next.model || {};
+      const ms = model.ms == null ? '' : `, ${model.ms} мс`;
+      const tokens = model.reasoning_tokens == null ? '' : `, токены рассуждения ${model.reasoning_tokens}`;
+      document.querySelector('#reasoning-state').textContent = next.reasoning
+        ? `Рассуждение включено${ms}${tokens}`
+        : `Рассуждение выключено${ms}`;
+
+      // Turns in user view
+      const userTurnsCard = document.querySelector('#user-turns-card');
+      const userTurns = document.querySelector('#user-turns');
+      userTurns.replaceChildren();
+      if ((next.turns || []).length) {
+        userTurnsCard.classList.remove('hidden');
+        for (const turn of next.turns) {
+          const turnBox = document.createElement('div');
+          turnBox.className = 'timeline-turn';
+          const title = document.createElement('div');
+          title.className = 'timeline-round';
+          title.textContent = `Раунд ${turn.round}`;
+          turnBox.appendChild(title);
+          for (const item of turn.questions || []) {
+            const line = document.createElement('div');
+            line.className = 'timeline-q';
+            line.innerHTML = `<span>${item.text}</span> &rarr; <strong>${item.answer_label}</strong>`;
+            turnBox.appendChild(line);
+          }
+          userTurns.appendChild(turnBox);
+        }
+      } else {
+        userTurnsCard.classList.add('hidden');
+      }
+
+      // Clarifying card
+      const userClarifyingCard = document.querySelector('#user-clarifying-card');
+      const userAnswersForm = document.querySelector('#user-answers-form');
+      if (next.phase === 'clarifying' && (next.questions || []).length) {
+        userClarifyingCard.classList.remove('hidden');
+        buildQuestionsForm(userAnswersForm, next.questions);
+      } else {
+        userClarifyingCard.classList.add('hidden');
+      }
+
+      // Confirmation card
+      const userConfirmCard = document.querySelector('#user-confirm-card');
+      const userPlain = document.querySelector('#user-plain-text');
+      const userAssumptionsBox = document.querySelector('#user-assumptions-box');
+      const userAssumptionsList = document.querySelector('#user-assumptions-list');
+      
+      if (next.phase === 'awaiting_confirm') {
+        userConfirmCard.classList.remove('hidden');
+        userPlain.textContent = next.card?.plain || '—';
+        userAssumptionsList.innerHTML = '';
+        const assumptions = next.assumptions || next.card?.assumptions || [];
+        if (assumptions.length) {
+          userAssumptionsBox.classList.remove('hidden');
+          for (const item of assumptions) {
+            const li = document.createElement('li');
+            li.textContent = item;
+            userAssumptionsList.appendChild(li);
+          }
+        } else {
+          userAssumptionsBox.classList.add('hidden');
+        }
+      } else {
+        userConfirmCard.classList.add('hidden');
+      }
+
+      // Result card
+      const userResultCard = document.querySelector('#user-result-card');
+      if (next.phase === 'sql_ready') {
+        userResultCard.classList.remove('hidden');
+        document.querySelector('#user-result-plain').textContent = next.card?.plain || '—';
+        renderExecution(document.querySelector('#user-execution'), next.execution);
+      } else {
+        userResultCard.classList.add('hidden');
+      }
+
+      // Failed card
+      const userFailedCard = document.querySelector('#user-failed-card');
+      if (next.phase === 'failed') {
+        userFailedCard.classList.remove('hidden');
+        const reason = next.refusal?.text
+          || (typeof next.refusal === 'string' ? next.refusal : '')
+          || (next.validator_errors && next.validator_errors.length ? next.validator_errors.join('\n') : 'Витрины данных не могут обслужить данный запрос.');
+        document.querySelector('#user-failed-reason').textContent = reason;
+      } else {
+        userFailedCard.classList.add('hidden');
+      }
+    }
+
+    function fail(error) {
+      const errNode = document.querySelector('#error');
+      errNode.classList.remove('hidden');
+      errNode.textContent = error.message;
+    }
+
+    function setBusy(message) {
+      const node = document.querySelector('#busy');
+      const text = document.querySelector('#busy-text');
+      if (message) {
+        node.classList.remove('hidden');
+        text.textContent = message;
+      } else {
+        node.classList.add('hidden');
+      }
+      for (const button of document.querySelectorAll('button')) button.disabled = Boolean(message);
+    }
+
+    async function api(path, options, busy) {
+      const errNode = document.querySelector('#error');
+      errNode.classList.add('hidden');
+      errNode.textContent = '';
+      setBusy(busy);
+      const response = await fetch(path, {
+        headers: { 'content-type': 'application/json' },
+        ...options,
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || response.statusText);
+      return body;
+    }
+
+    function answerValue(question, form) {
+      const slot = question.slot;
+      const control = question.control || { type: 'text' };
+      if (control.type === 'span') {
+        const from = form.querySelector(`select[data-slot="${slot}"][data-part="from"]`).value;
+        const to = form.querySelector(`select[data-slot="${slot}"][data-part="to"]`).value;
+        return { from, to };
+      }
+      if (control.type === 'select') {
+        const value = form.querySelector(`select[data-slot="${slot}"]`).value;
+        if (slot === 'time') return { column: value, ...question.preset };
+        return value;
+      }
+      if (control.type === 'period') {
+        const column = form.querySelector(`select[data-slot="${slot}"]`).value;
+        const from = form.querySelector(`[data-part="from"]`).value.trim();
+        const to = form.querySelector(`[data-part="to"]`).value.trim();
+        return { column, from, to, all_time: false };
+      }
+      if (control.type === 'thresholds') {
+        const [fl_min, fl_max, ip_min, ip_max] = form.querySelector(`[data-slot="${slot}"]`).value.trim().split(/\s+/).map(Number);
+        return { fl_min, fl_max, ip_min, ip_max };
+      }
+      const value = form.querySelector(`[data-slot="${slot}"]`).value.trim();
+      if (slot === 'id_profile_seller' && value === '') return null;
+      return value;
+    }
+
+    async function submitAnswers(formElement) {
+      const values = {};
+      for (const question of snapshot.questions || []) {
+        values[question.slot] = answerValue(question, formElement);
+      }
+      try {
+        draw(await api(`/api/dialogues/${id}/answers`, { method: 'POST', body: JSON.stringify({ values }) }, 'Записываю ответы…'));
+      } catch (error) {
+        fail(error);
+      } finally {
+        setBusy('');
+      }
+    }
+
+    function preferredConnection(current) {
+      const saved = current || localStorage.getItem('carl_ask_connection') || '';
+      if (saved && connections.some((item) => item.name === saved)) return saved;
+      if (connections.some((item) => item.name === 'wpl2')) return 'wpl2';
+      return connections.find((item) => item.executable)?.name || connections[0]?.name || '';
+    }
+
+    function fillConnectionSelect(select) {
+      const chosen = preferredConnection(select.value);
+      select.replaceChildren();
+      for (const item of connections) {
+        const option = document.createElement('option');
+        option.value = item.name;
+        option.disabled = !item.executable;
+        const flags = [];
+        if (item.readOnly) flags.push('RO');
+        if (!item.executable) flags.push('не исполняется');
+        option.textContent = `${item.name} · ${item.user || '?'}@${item.host}:${item.port}/${item.database}${flags.length ? ` · ${flags.join(', ')}` : ''}`;
+        select.appendChild(option);
+      }
+      if (chosen) select.value = chosen;
+    }
+
+    function fillConnections() {
+      fillConnectionSelect(document.querySelector('#user-connection'));
+      fillConnectionSelect(document.querySelector('#dev-connection'));
+    }
+
+    function cellText(value) {
+      if (value === null || value === undefined) return null;
+      if (typeof value === 'object') return JSON.stringify(value);
+      return String(value);
+    }
+
+    function renderExecution(node, execution) {
+      node.replaceChildren();
+      if (!execution) return;
+      if (execution.error) {
+        const box = document.createElement('div');
+        box.className = 'exec-error';
+        const parts = [execution.error.message];
+        if (execution.error.detail) parts.push(`Detail: ${execution.error.detail}`);
+        if (execution.error.hint) parts.push(`Hint: ${execution.error.hint}`);
+        if (execution.error.code) parts.push(`Code: ${execution.error.code}`);
+        box.textContent = parts.filter(Boolean).join('\n');
+        node.appendChild(box);
+      }
+      const fields = execution.fields || [];
+      if (!fields.length) return;
+      const meta = document.createElement('div');
+      meta.className = 'result-meta';
+      meta.textContent = [
+        execution.connection,
+        execution.connectionInfo,
+        `${execution.rowCount ?? 0} строк`,
+        execution.elapsedMs == null ? '' : `${execution.elapsedMs} мс`,
+        execution.truncated ? 'обрезано' : '',
+      ].filter(Boolean).join(' · ');
+      node.appendChild(meta);
+      const wrap = document.createElement('div');
+      wrap.className = 'result-wrap';
+      const table = document.createElement('table');
+      table.className = 'result-table';
+      const head = document.createElement('tr');
+      for (const field of fields) {
+        const th = document.createElement('th');
+        th.textContent = field.name;
+        head.appendChild(th);
+      }
+      const thead = document.createElement('thead');
+      thead.appendChild(head);
+      const tbody = document.createElement('tbody');
+      for (const row of execution.rows || []) {
+        const tr = document.createElement('tr');
+        fields.forEach((_, index) => {
+          const td = document.createElement('td');
+          const text = cellText(Array.isArray(row) ? row[index] : null);
+          if (text === null) {
+            td.className = 'null-val';
+            td.textContent = 'NULL';
+          } else {
+            td.textContent = text;
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      }
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      node.appendChild(wrap);
+    }
+
+    async function loadConnections() {
+      const response = await fetch('/api/connections');
+      const body = await response.json();
+      connections = body.connections || [];
+      fillConnections();
+    }
+
+    function activeConnection() {
+      const select = document.querySelector(activeMode === 'dev' ? '#dev-connection' : '#user-connection');
+      return select.value;
+    }
+
+    async function handleExecute() {
+      const connection = activeConnection();
+      if (!connection) {
+        fail(new Error('Нет исполняемой коннекции'));
+        return;
+      }
+      localStorage.setItem('carl_ask_connection', connection);
+      try {
+        draw(await api(`/api/dialogues/${id}/execute`, {
+          method: 'POST',
+          body: JSON.stringify({ connection }),
+        }, 'Выполняю запрос…'));
+      } catch (error) {
+        fail(error);
+      } finally {
+        setBusy('');
+      }
+    }
+
+    async function handleConfirm() {
+      try {
+        draw(await api(`/api/dialogues/${id}/confirm`, { method: 'POST', body: '{}' }, 'Формирую SQL-запрос…'));
+      } catch (error) {
+        fail(error);
+      } finally {
+        setBusy('');
+      }
+    }
+
+    async function handleReject(text) {
+      if (!text) {
+        fail(new Error('Укажите текст замечания или правки'));
+        return;
+      }
+      try {
+        draw(await api(`/api/dialogues/${id}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ text }),
+        }, 'Модель вносит правку в карточку…'));
+      } catch (error) {
+        fail(error);
+      } finally {
+        setBusy('');
+      }
+    }
+
+    // Question Submit
+    const reasoningBox = document.querySelector('#reasoning');
+    reasoningBox.checked = localStorage.getItem('carl_ask_reasoning') === '1';
+    reasoningBox.addEventListener('change', () => {
+      localStorage.setItem('carl_ask_reasoning', reasoningBox.checked ? '1' : '0');
+    });
+
+    document.querySelector('#ask').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const utterance = document.querySelector('#utterance').value.trim();
+      if (!utterance) return;
+      const reasoning = reasoningBox.checked;
+      try {
+        draw(await api('/api/dialogues', {
+          method: 'POST',
+          body: JSON.stringify({ utterance, reasoning }),
+        }, reasoning
+          ? 'Модель разбирает вопрос с рассуждением. Обычно это около минуты.'
+          : 'Модель разбирает вопрос без рассуждения. Обычно это несколько секунд.'));
+      } catch (error) {
+        fail(error);
+      } finally {
+        setBusy('');
+      }
+    });
+
+    // Form submits for answers
+    document.querySelector('#answers').addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitAnswers(event.target);
+    });
+
+    document.querySelector('#user-answers-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitAnswers(event.target);
+    });
+
+    // Confirmation handlers
+    document.querySelector('#confirm').addEventListener('click', handleConfirm);
+    document.querySelector('#user-btn-confirm').addEventListener('click', handleConfirm);
+
+    // Rejection handlers
+    document.querySelector('#reject').addEventListener('click', () => {
+      handleReject(document.querySelector('#reject-text').value);
+    });
+
+    document.querySelector('#user-btn-toggle-reject').addEventListener('click', () => {
+      const box = document.querySelector('#user-rejection-box');
+      box.classList.toggle('hidden');
+      if (!box.classList.contains('hidden')) {
+        document.querySelector('#user-reject-input').focus();
+      }
+    });
+
+    document.querySelector('#user-btn-reject').addEventListener('click', () => {
+      handleReject(document.querySelector('#user-reject-input').value);
+    });
+
+    for (const selectId of ['#user-connection', '#dev-connection']) {
+      document.querySelector(selectId).addEventListener('change', (event) => {
+        localStorage.setItem('carl_ask_connection', event.target.value);
+        document.querySelector('#user-connection').value = event.target.value;
+        document.querySelector('#dev-connection').value = event.target.value;
+      });
+    }
+    document.querySelector('#user-execute').addEventListener('click', handleExecute);
+    document.querySelector('#dev-execute').addEventListener('click', handleExecute);
+
+    // Initialize
+    initTheme();
+    setMode(activeMode);
+    loadConnections().catch((error) => fail(error));
+  </script>
+</body>
+</html>

@@ -1,0 +1,1036 @@
+{
+  "snapshot": "2026-10-07",
+  "source": "wpl2",
+  "hashes": {
+    "prof_buy": "0bd7dbeb3ed0c51b7929b79bbb5efc01",
+    "prof_sel": "6672d8d16a91094e27c5b1d03281dadf",
+    "prof_total_an": "6672d8d16a91094e27c5b1d03281dadf",
+    "t_auct_bids_an": "cae6e54af58b89e2e82b79196b318dd8",
+    "t_auct_total_an": "648f27a0f79ed0a3205b035213bc870a",
+    "users": "8db785f91b1d81380ee7a0682c62a2e4"
+  },
+  "tables": {
+    "prof_buy": [
+      {
+        "ordinal": 1,
+        "name": "id_profile",
+        "type": "integer"
+      },
+      {
+        "ordinal": 2,
+        "name": "getprofsmartname2",
+        "type": "text"
+      },
+      {
+        "ordinal": 3,
+        "name": "is_seller",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_seller_wanted",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_buyer",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 6,
+        "name": "is_buyer_wanted",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 7,
+        "name": "?column?",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 8,
+        "name": "is_company",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 9,
+        "name": "is_indiv",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 10,
+        "name": "dkptype_fl",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 11,
+        "name": "dkptype",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 12,
+        "name": "is_deleted",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 13,
+        "name": "status",
+        "type": "USER-DEFINED"
+      },
+      {
+        "ordinal": 14,
+        "name": "reserv_comp",
+        "type": "integer"
+      },
+      {
+        "ordinal": 15,
+        "name": "reserv_indiv",
+        "type": "integer"
+      },
+      {
+        "ordinal": 16,
+        "name": "balance_reserv",
+        "type": "integer"
+      },
+      {
+        "ordinal": 17,
+        "name": "balance_summ",
+        "type": "integer"
+      },
+      {
+        "ordinal": 18,
+        "name": "prof_categ_buy",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 19,
+        "name": "prof_categ_sel",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 20,
+        "name": "who_can_buy",
+        "type": "numeric"
+      },
+      {
+        "ordinal": 21,
+        "name": "who_can_buy_str",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 22,
+        "name": "dt_create",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 23,
+        "name": "dt_signe",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 24,
+        "name": "region",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 25,
+        "name": "log_domain",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 26,
+        "name": "trade_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 27,
+        "name": "is_vip",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 28,
+        "name": "id_user_owner",
+        "type": "integer"
+      },
+      {
+        "ordinal": 29,
+        "name": "ext_buyer_num",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 30,
+        "name": "employer",
+        "type": "character varying"
+      }
+    ],
+    "prof_sel": [
+      {
+        "ordinal": 1,
+        "name": "id_profile",
+        "type": "integer"
+      },
+      {
+        "ordinal": 2,
+        "name": "getprofsmartname2",
+        "type": "text"
+      },
+      {
+        "ordinal": 3,
+        "name": "is_seller",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_seller_wanted",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_buyer",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 6,
+        "name": "is_buyer_wanted",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 7,
+        "name": "?column?",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 8,
+        "name": "is_company",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 9,
+        "name": "is_indiv",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 10,
+        "name": "dkptype_fl",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 11,
+        "name": "dkptype",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 12,
+        "name": "is_deleted",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 13,
+        "name": "status",
+        "type": "USER-DEFINED"
+      },
+      {
+        "ordinal": 14,
+        "name": "reserv_comp",
+        "type": "integer"
+      },
+      {
+        "ordinal": 15,
+        "name": "reserv_indiv",
+        "type": "integer"
+      },
+      {
+        "ordinal": 16,
+        "name": "balance_reserv",
+        "type": "integer"
+      },
+      {
+        "ordinal": 17,
+        "name": "balance_summ",
+        "type": "integer"
+      },
+      {
+        "ordinal": 18,
+        "name": "prof_categ_buy",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 19,
+        "name": "prof_categ_sel",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 20,
+        "name": "who_can_buy",
+        "type": "numeric"
+      },
+      {
+        "ordinal": 21,
+        "name": "who_can_buy_str",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 22,
+        "name": "dt_create",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 23,
+        "name": "dt_signe",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 24,
+        "name": "region",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 25,
+        "name": "log_domain",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 26,
+        "name": "trade_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 27,
+        "name": "is_vip",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 28,
+        "name": "id_user_owner",
+        "type": "integer"
+      }
+    ],
+    "prof_total_an": [
+      {
+        "ordinal": 1,
+        "name": "id_profile",
+        "type": "integer"
+      },
+      {
+        "ordinal": 2,
+        "name": "getprofsmartname2",
+        "type": "text"
+      },
+      {
+        "ordinal": 3,
+        "name": "is_seller",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_seller_wanted",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_buyer",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 6,
+        "name": "is_buyer_wanted",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 7,
+        "name": "?column?",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 8,
+        "name": "is_company",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 9,
+        "name": "is_indiv",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 10,
+        "name": "dkptype_fl",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 11,
+        "name": "dkptype",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 12,
+        "name": "is_deleted",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 13,
+        "name": "status",
+        "type": "USER-DEFINED"
+      },
+      {
+        "ordinal": 14,
+        "name": "reserv_comp",
+        "type": "integer"
+      },
+      {
+        "ordinal": 15,
+        "name": "reserv_indiv",
+        "type": "integer"
+      },
+      {
+        "ordinal": 16,
+        "name": "balance_reserv",
+        "type": "integer"
+      },
+      {
+        "ordinal": 17,
+        "name": "balance_summ",
+        "type": "integer"
+      },
+      {
+        "ordinal": 18,
+        "name": "prof_categ_buy",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 19,
+        "name": "prof_categ_sel",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 20,
+        "name": "who_can_buy",
+        "type": "numeric"
+      },
+      {
+        "ordinal": 21,
+        "name": "who_can_buy_str",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 22,
+        "name": "dt_create",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 23,
+        "name": "dt_signe",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 24,
+        "name": "region",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 25,
+        "name": "log_domain",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 26,
+        "name": "trade_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 27,
+        "name": "is_vip",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 28,
+        "name": "id_user_owner",
+        "type": "integer"
+      }
+    ],
+    "t_auct_bids_an": [
+      {
+        "ordinal": 1,
+        "name": "id_auction",
+        "type": "integer"
+      },
+      {
+        "ordinal": 2,
+        "name": "count",
+        "type": "bigint"
+      },
+      {
+        "ordinal": 3,
+        "name": "id_user_bid",
+        "type": "integer"
+      },
+      {
+        "ordinal": 4,
+        "name": "id_profile_bid",
+        "type": "integer"
+      },
+      {
+        "ordinal": 5,
+        "name": "user_bid",
+        "type": "text"
+      },
+      {
+        "ordinal": 6,
+        "name": "profile_bid",
+        "type": "text"
+      },
+      {
+        "ordinal": 7,
+        "name": "last_bid_set",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 8,
+        "name": "last_bid_value",
+        "type": "integer"
+      }
+    ],
+    "t_auct_total_an": [
+      {
+        "ordinal": 1,
+        "name": "mark",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 2,
+        "name": "model",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 3,
+        "name": "modification",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 4,
+        "name": "vin",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 5,
+        "name": "reg_num",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 6,
+        "name": "year",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 7,
+        "name": "mileage",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 8,
+        "name": "volume",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 9,
+        "name": "engine",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 10,
+        "name": "power_hp",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 11,
+        "name": "drive_train",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 12,
+        "name": "transmission",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 13,
+        "name": "location",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 14,
+        "name": "body_type",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 15,
+        "name": "vat",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 16,
+        "name": "total",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 17,
+        "name": "object_type_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 18,
+        "name": "object_type_top_name",
+        "type": "text"
+      },
+      {
+        "ordinal": 19,
+        "name": "auct_dealer_code",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 20,
+        "name": "auct_dealer_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 21,
+        "name": "leader_dealer_code",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 22,
+        "name": "leader_dealer_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 23,
+        "name": "pay_delay",
+        "type": "integer"
+      },
+      {
+        "ordinal": 24,
+        "name": "id_profile_seller",
+        "type": "integer"
+      },
+      {
+        "ordinal": 25,
+        "name": "summa_lead",
+        "type": "integer"
+      },
+      {
+        "ordinal": 26,
+        "name": "dt_set_lead",
+        "type": "timestamp without time zone"
+      },
+      {
+        "ordinal": 27,
+        "name": "id_profile_leader",
+        "type": "integer"
+      },
+      {
+        "ordinal": 28,
+        "name": "leader_name",
+        "type": "text"
+      },
+      {
+        "ordinal": 29,
+        "name": "inspect_key",
+        "type": "bigint"
+      },
+      {
+        "ordinal": 30,
+        "name": "leader_city",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 31,
+        "name": "seller_id_company",
+        "type": "integer"
+      },
+      {
+        "ordinal": 32,
+        "name": "maxpost_avg_price",
+        "type": "integer"
+      },
+      {
+        "ordinal": 33,
+        "name": "bid_profiles",
+        "type": "bigint"
+      },
+      {
+        "ordinal": 34,
+        "name": "period",
+        "type": "text"
+      },
+      {
+        "ordinal": 35,
+        "name": "id_comp_buyers",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 36,
+        "name": "id_commission",
+        "type": "integer"
+      },
+      {
+        "ordinal": 37,
+        "name": "commission_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 38,
+        "name": "id_commission_details",
+        "type": "integer"
+      },
+      {
+        "ordinal": 39,
+        "name": "wcb",
+        "type": "numeric"
+      },
+      {
+        "ordinal": 40,
+        "name": "wcb_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 41,
+        "name": "subcase",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 42,
+        "name": "tariff_code",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 43,
+        "name": "commission_dt_start",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 44,
+        "name": "commission_dt_end",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 45,
+        "name": "commission_min",
+        "type": "double precision"
+      },
+      {
+        "ordinal": 46,
+        "name": "commission_max",
+        "type": "double precision"
+      },
+      {
+        "ordinal": 47,
+        "name": "commission_cb_min",
+        "type": "double precision"
+      },
+      {
+        "ordinal": 48,
+        "name": "commission_cb_max",
+        "type": "double precision"
+      },
+      {
+        "ordinal": 49,
+        "name": "commission_percent",
+        "type": "double precision"
+      },
+      {
+        "ordinal": 50,
+        "name": "commission_fix",
+        "type": "double precision"
+      },
+      {
+        "ordinal": 51,
+        "name": "expert_cert",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 52,
+        "name": "resale_num",
+        "type": "integer"
+      },
+      {
+        "ordinal": 53,
+        "name": "resale_num_total",
+        "type": "bigint"
+      },
+      {
+        "ordinal": 54,
+        "name": "id_auction",
+        "type": "integer"
+      },
+      {
+        "ordinal": 55,
+        "name": "id_user_profile",
+        "type": "integer"
+      },
+      {
+        "ordinal": 56,
+        "name": "id_object",
+        "type": "integer"
+      },
+      {
+        "ordinal": 57,
+        "name": "auction_type",
+        "type": "USER-DEFINED"
+      },
+      {
+        "ordinal": 58,
+        "name": "status",
+        "type": "USER-DEFINED"
+      },
+      {
+        "ordinal": 59,
+        "name": "dt_start",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 60,
+        "name": "dt_end",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 61,
+        "name": "buy_now",
+        "type": "integer"
+      },
+      {
+        "ordinal": 62,
+        "name": "min_price",
+        "type": "integer"
+      },
+      {
+        "ordinal": 63,
+        "name": "start_price",
+        "type": "integer"
+      },
+      {
+        "ordinal": 64,
+        "name": "step",
+        "type": "integer"
+      },
+      {
+        "ordinal": 65,
+        "name": "is_deleted",
+        "type": "character"
+      },
+      {
+        "ordinal": 66,
+        "name": "is_parsed",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 67,
+        "name": "n_views",
+        "type": "integer"
+      },
+      {
+        "ordinal": 68,
+        "name": "source_url",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 69,
+        "name": "seller_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 70,
+        "name": "reserv_comp",
+        "type": "integer"
+      },
+      {
+        "ordinal": 71,
+        "name": "id_workflow",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 72,
+        "name": "workflow_status",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 73,
+        "name": "is_archive",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 74,
+        "name": "approve_days",
+        "type": "integer"
+      },
+      {
+        "ordinal": 75,
+        "name": "parameters",
+        "type": "jsonb"
+      },
+      {
+        "ordinal": 76,
+        "name": "sort_priority",
+        "type": "integer"
+      },
+      {
+        "ordinal": 77,
+        "name": "bid_count",
+        "type": "integer"
+      },
+      {
+        "ordinal": 78,
+        "name": "reserv_indiv",
+        "type": "integer"
+      },
+      {
+        "ordinal": 79,
+        "name": "bid_locked_by",
+        "type": "integer"
+      },
+      {
+        "ordinal": 80,
+        "name": "locked_by",
+        "type": "integer"
+      },
+      {
+        "ordinal": 81,
+        "name": "dt_approve",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 82,
+        "name": "dt_change_status",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 83,
+        "name": "id_prof_dealer_code",
+        "type": "integer"
+      },
+      {
+        "ordinal": 84,
+        "name": "id_queue",
+        "type": "integer"
+      },
+      {
+        "ordinal": 85,
+        "name": "dt_create",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 86,
+        "name": "hidden",
+        "type": "boolean"
+      },
+      {
+        "ordinal": 87,
+        "name": "dt_active",
+        "type": "timestamp with time zone"
+      },
+      {
+        "ordinal": 88,
+        "name": "amo_status_lead",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 89,
+        "name": "amo_status_sell",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 90,
+        "name": "amo_status_lead_bro",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 91,
+        "name": "applied_commission",
+        "type": "integer"
+      },
+      {
+        "ordinal": 92,
+        "name": "tariff_rules",
+        "type": "jsonb"
+      },
+      {
+        "ordinal": 93,
+        "name": "menu_parent_object_type",
+        "type": "integer"
+      },
+      {
+        "ordinal": 94,
+        "name": "who_can_buy",
+        "type": "numeric"
+      }
+    ],
+    "users": [
+      {
+        "ordinal": 1,
+        "name": "id_user",
+        "type": "integer"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 3,
+        "name": "phone",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 4,
+        "name": "email",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 5,
+        "name": "first_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 6,
+        "name": "middle_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 7,
+        "name": "last_name",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 8,
+        "name": "status",
+        "type": "USER-DEFINED"
+      },
+      {
+        "ordinal": 9,
+        "name": "target_url",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 10,
+        "name": "dt_created",
+        "type": "timestamp without time zone"
+      },
+      {
+        "ordinal": 11,
+        "name": "dt_last_login",
+        "type": "timestamp without time zone"
+      },
+      {
+        "ordinal": 12,
+        "name": "is_deleted",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 13,
+        "name": "is_blocked",
+        "type": "character varying"
+      },
+      {
+        "ordinal": 14,
+        "name": "reg_domain",
+        "type": "character varying"
+      }
+    ]
+  }
+}
