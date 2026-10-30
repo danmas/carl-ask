@@ -1,4 +1,4 @@
-import { REFUSAL_CODES } from './refusals.js';
+import { normalizeRefusal } from './refusals.js';
 
 const SCORE_KEYS = ['score', 'complexity', 'clarity', 'rating'];
 
@@ -85,12 +85,7 @@ function withTrace(value, trace) {
 function cleanSlots(raw) {
   const slots = raw && typeof raw === 'object' ? { ...raw } : {};
   for (const key of SCORE_KEYS) delete slots[key];
-  if (typeof slots.refusal === 'string') {
-    slots.refusal = REFUSAL_CODES.has(slots.refusal) ? { code: slots.refusal } : null;
-  } else if (slots.refusal && typeof slots.refusal === 'object') {
-    const code = slots.refusal.code || null;
-    slots.refusal = code && REFUSAL_CODES.has(code) ? { code } : null;
-  }
+  slots.refusal = normalizeRefusal(slots.refusal);
   return slots;
 }
 

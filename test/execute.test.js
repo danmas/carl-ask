@@ -165,6 +165,8 @@ test('accepted SQL runs on the named connection and a database error stays on th
   assert.equal(executed[0].connection, 'wpl2');
   assert.equal(executed[0].rowCount, 1);
   assert.equal(executed[1].error, '28P01');
+  assert.match(executed[1].error_message, /failed/);
+  assert.equal(executed[1].snapshot.execution.error_message.includes('s3cret'), false);
   assert.equal(JSON.stringify(executed).includes('[[7,null]]') || JSON.stringify(executed).includes('[[7, null]]'), false);
   assert.equal(JSON.stringify(rows).includes('s3cret'), false);
 });

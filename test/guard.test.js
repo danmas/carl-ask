@@ -121,6 +121,33 @@ test('«все» does not become a profile id', () => {
   assert.equal(slots.filters.some((filter) => filter.column === 'id_profile_leader'), false);
 });
 
+test('an assumption that a column is missing refuses before SQL', async () => {
+  const opened = await createStore({
+    async slots() {
+      return {
+        metric: { agg: 'list' },
+        grain: 'profile',
+        mart: 'carl_an.prof_buy',
+        filters: [{ column: 'status', op: '=', value: 'ok' }],
+        assumptions: [
+          'ИНН — это id_profile, так как отдельной колонки ИНН в снимке нет',
+          'Поле времени года — dt_end. Допущение только этой метрики.',
+        ],
+        missing: [],
+        period_stated: false,
+        params: {},
+        refusal: null,
+      };
+    },
+  }).open('список ИНН Юр. лиц и ИП со статусами buyer + OK');
+  assert.equal(opened.phase, 'failed');
+  assert.equal(opened.refusal.code, 'COLUMN_ABSENT');
+  assert.match(opened.refusal.text, /колонки ИНН в снимке нет/);
+  assert.equal(opened.refusal.text.includes('roles'), false);
+  assert.equal(opened.sql, null);
+  assert.equal(opened.assumptions.some((line) => /колонк/i.test(line)), false);
+});
+
 test('all profile roles skip unused subscriber and keep buyer flags', async () => {
   const roles = await createStore({
     async slots() {
@@ -190,6 +217,7 @@ test('buyer export with seller ids keeps bids and purchases', async () => {
   assert.match(ready.sql, /SUCCESS/);
   assert.deepEqual(opened.slots.filters.find((filter) => filter.column === 'id_profile_seller').value, ['19760', '2']);
   assert.equal(ready.sql.includes('SET_PROXY'), false);
+  assert.ok(ready.card.notes.some((line) => line.includes('is_deleted')));
   assert.equal(validate(ready.sql).ok, true, validate(ready.sql).errors.join('; '));
 });
 
@@ -216,6 +244,42 @@ test('a string refusal on the buyer segment asks nothing', async () => {
   assert.match(snap.refusal.text, /150/);
   assert.equal(snap.reading.includes('api/api_supp.sql'), false);
   assert.match(snap.reading, /Список профилей/);
+});
+
+test('«по всем пользователям» counts sold lots from reports without a user number', async () => {
+  const store = createStore({
+    async slots() {
+      return {
+        metric: { agg: 'count', field: '*' },
+        grain: 'auction',
+        mart: 'carl_an.v_lot_from_report_an',
+        period_stated: true,
+        time: { column: 'dt_create', from: '2026-09-01', to: '2026-10-01' },
+        filters: [{ column: 'status', op: 'IN', value: ['SUCCESS', 'BUYNOW'] }],
+        dimensions: [],
+        assumptions: [],
+        missing: ['id_user'],
+        params: {},
+        refusal: null,
+      };
+    },
+  });
+  const opened = await store.open('Сколько лотов сделанных из отчетов продано за прошлый месяц ?');
+  assert.equal(opened.phase, 'clarifying');
+  assert.deepEqual(opened.questions.map((q) => q.slot), ['id_user']);
+  const garbage = store.answer(opened.id, { id_user: 'абв' });
+  assert.equal(garbage.phase, 'clarifying');
+  assert.match(garbage.block, /не номер/);
+  const answered = store.answer(opened.id, { id_user: 'по всем пользователям' });
+  assert.equal(answered.phase, 'awaiting_confirm');
+  assert.equal(answered.slots.params.all_users, true);
+  assert.equal(answered.slots.filters.some((f) => f.column === 'id_user'), false);
+  assert.match(answered.card.plain, /По всем пользователям/);
+  const ready = await store.confirm(answered.id);
+  assert.equal(ready.phase, 'sql_ready');
+  assert.match(ready.sql, /status IN \('SUCCESS', 'BUYNOW'\)/);
+  assert.equal(ready.sql.includes('id_user'), false);
+  assert.equal(validate(ready.sql).ok, true, validate(ready.sql).errors.join('; '));
 });
 
 test('duration sql is an average of a date difference and passes the validator', () => {

@@ -90,8 +90,10 @@ function whoSentence(slots) {
   const bidder = findFilter(filters, 'id_profile_bid');
   if (bidder) lines.push(`Профиль, который делал ставки, номер ${bidder.value}.`);
   const maker = findFilter(filters, 'id_user');
-  if (maker && /v_lot_from_report_an|v_inspect_report_an/.test(slots.mart || '')) {
+  if (maker && /^\d+$/.test(String(maker.value)) && /v_lot_from_report_an|v_inspect_report_an/.test(slots.mart || '')) {
     lines.push(`Пользователь номер ${maker.value}.`);
+  } else if (slots.params?.all_users && /v_lot_from_report_an|v_inspect_report_an/.test(slots.mart || '')) {
+    lines.push('По всем пользователям.');
   }
   const inspector = findFilter(filters, 'id_user_inspector');
   if (inspector) lines.push(`Автор отчёта, номер ${inspector.value}.`);

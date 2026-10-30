@@ -553,9 +553,17 @@
     .reasoning-toggle {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-      font-size: 14px;
+      gap: 6px;
+      margin: 8px 0 0;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .reasoning-toggle input {
+      width: auto;
+      flex: none;
     }
 
     .reasoning-state {
@@ -815,7 +823,8 @@
     .result-meta {
       display: flex;
       gap: 8px;
-      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
       margin: 8px 0;
       font-size: 12px;
       color: var(--text-secondary);
@@ -892,6 +901,29 @@
       margin-right: 4px;
     }
 
+    .journal-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .journal-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      background: var(--bg-surface-elevated);
+    }
+
+    .journal-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .journal-q { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+
+    .journal-sql { max-height: 180px; }
+
     /* Helper utility classes */
     .hidden { display: none !important; }
     .mt-1 { margin-top: 4px; }
@@ -944,6 +976,10 @@
           <button type="button" class="tab-btn" id="tab-debug" role="tab" aria-selected="false">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
             Отладка
+          </button>
+          <button type="button" class="tab-btn" id="tab-journal" role="tab" aria-selected="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            Журнал
           </button>
         </div>
 
@@ -1004,9 +1040,8 @@
 
         <label class="reasoning-toggle" for="reasoning">
           <input type="checkbox" id="reasoning">
-          Рассуждение модели
+          <span>Рассуждение модели. Выключено: reasoning_effort=none. На одном диалоге режим не меняется.</span>
         </label>
-        <p class="text-sm text-muted">Выключено: запрос с <code>reasoning_effort=none</code>. Включите, чтобы сравнить ответ с рассуждением. На одном диалоге режим не меняется.</p>
 
         <div style="margin-top: 10px;">
           <button type="submit" class="btn btn-primary" id="btn-submit-ask">
@@ -1024,10 +1059,12 @@
       <!-- USER MODE VIEW CONTAINER                       -->
       <!-- ============================================== -->
       <div id="user-mode-container">
+        <div id="user-block" class="banner warning hidden" role="alert"></div>
         <!-- Current Question Display -->
         <div class="user-question-box">
           <div class="user-question-title">Текущий вопрос</div>
           <div class="user-question-text" id="user-utterance-text">—</div>
+          <div class="reasoning-state hidden" id="user-context"></div>
           <div class="reasoning-state" id="reasoning-state">—</div>
         </div>
 
@@ -1063,6 +1100,12 @@
             </h2>
           </div>
           <div class="plain-box" id="user-plain-text">—</div>
+          <ul class="assumptions-list" id="user-notes-list"></ul>
+
+          <div id="user-inherited-box" class="hidden mb-2">
+            <div class="text-sm" style="font-weight: 600; color: var(--warning-text);">Перенесено из прошлого вопроса:</div>
+            <ul class="assumptions-list" id="user-inherited-list"></ul>
+          </div>
 
           <div id="user-assumptions-box" class="hidden mb-2">
             <div class="text-sm" style="font-weight: 600; color: var(--text-secondary);">Принятые допущения:</div>
@@ -1100,6 +1143,7 @@
 
           <p class="text-sm text-muted mb-1">Описание логики выборки:</p>
           <div class="plain-box mb-2" id="user-result-plain">—</div>
+          <ul class="assumptions-list" id="user-result-notes"></ul>
 
           <div class="exec-bar">
             <label for="user-connection">Коннекция</label>
@@ -1107,6 +1151,15 @@
             <button type="button" class="btn btn-primary btn-sm" id="user-execute">Выполнить</button>
           </div>
           <div id="user-execution"></div>
+
+          <form id="user-followup" class="hidden mt-2">
+            <label for="user-followup-input">Новый вопрос с учётом контекста</label>
+            <textarea id="user-followup-input" placeholder="Например: а списком; а за октябрь; а только физлица"></textarea>
+            <p class="text-sm text-muted mt-1">Опора — этот вопрос: витрина, период, фильтры. Результат и SQL в модель не уходят. Вопрос с чистого листа — верхняя форма.</p>
+            <div class="mt-1">
+              <button type="submit" class="btn btn-primary btn-sm" id="user-btn-followup">Спросить с опорой</button>
+            </div>
+          </form>
         </div>
 
         <!-- Refusal / Failure (Phase: failed) -->
@@ -1182,6 +1235,17 @@
 
     </div>
 
+    <div id="journal-panel" class="card hidden">
+      <div class="card-header">
+        <h2 class="card-title">Журнал вопросов</h2>
+        <span id="journal-count" class="badge badge-phase">…</span>
+      </div>
+      <div class="debug-tools">
+        <input id="journal-search" type="search" placeholder="Поиск по вопросу, пониманию или SQL">
+      </div>
+      <div id="journal-list" class="journal-list"></div>
+    </div>
+
     <div id="debug-panel" class="card hidden">
       <div class="card-header">
         <h2 class="card-title">Запросы из комментариев SQL</h2>
@@ -1235,6 +1299,8 @@
     const tabUser = document.querySelector('#tab-user');
     const tabDev = document.querySelector('#tab-dev');
     const tabDebug = document.querySelector('#tab-debug');
+    const tabJournal = document.querySelector('#tab-journal');
+    const journalPanel = document.querySelector('#journal-panel');
     const themeToggle = document.querySelector('#theme-toggle');
     const fields = document.querySelector('#fields');
     const stepper = document.querySelector('#stepper');
@@ -1290,19 +1356,22 @@
         [tabUser, 'user'],
         [tabDev, 'dev'],
         [tabDebug, 'debug'],
+        [tabJournal, 'journal'],
       ];
       for (const [el, name] of tabs) {
         const on = name === mode;
         el.classList.toggle('active', on);
         el.setAttribute('aria-selected', on ? 'true' : 'false');
       }
-      const debugging = mode === 'debug';
-      askCard.classList.toggle('hidden', debugging);
-      debugPanel.classList.toggle('hidden', !debugging);
-      if (debugging) {
+      const side = mode === 'debug' || mode === 'journal';
+      askCard.classList.toggle('hidden', side);
+      debugPanel.classList.toggle('hidden', mode !== 'debug');
+      journalPanel.classList.toggle('hidden', mode !== 'journal');
+      if (side) {
         view.classList.add('hidden');
         stepper.classList.add('hidden');
-        loadDebug();
+        if (mode === 'debug') loadDebug();
+        else loadJournal();
         return;
       }
       userModeContainer.classList.toggle('hidden', mode !== 'user');
@@ -1319,6 +1388,140 @@
     tabUser.addEventListener('click', () => setMode('user'));
     tabDev.addEventListener('click', () => setMode('dev'));
     tabDebug.addEventListener('click', () => setMode('debug'));
+    tabJournal.addEventListener('click', () => setMode('journal'));
+
+    const phaseLabel = {
+      draft: 'черновик',
+      clarifying: 'уточнение',
+      awaiting_confirm: 'согласование',
+      sql_ready: 'можно посчитать',
+      failed: 'отказ',
+    };
+    const eventLabel = {
+      open: 'вопрос',
+      answer: 'уточнение',
+      confirm: 'SQL',
+      confirm_blocked: 'не подтверждено',
+      execute: 'выполнение',
+      reject: 'правка',
+      model_error: 'модель',
+      http_error: 'ошибка',
+    };
+    let journalRows = [];
+
+    function journalTime(iso) {
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return iso || '';
+      return date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function journalText(item) {
+      const turns = (item.turns || []).flatMap((turn) => (turn.questions || []).map((q) => `${q.text} ${q.answer_label}`));
+      return [item.utterance, item.plain, item.reading, item.sql, item.refusal?.text, item.block, ...turns].join('\n');
+    }
+
+    function addLine(parent, text, className) {
+      if (!text) return;
+      const node = document.createElement('div');
+      node.className = className || 'timeline-q';
+      node.textContent = text;
+      parent.appendChild(node);
+    }
+
+    function renderJournal() {
+      const list = document.querySelector('#journal-list');
+      const q = document.querySelector('#journal-search').value.trim().toLowerCase();
+      const rows = journalRows.filter((item) => !q || journalText(item).toLowerCase().includes(q));
+      document.querySelector('#journal-count').textContent = `${rows.length} из ${journalRows.length}`;
+      list.replaceChildren();
+      if (!rows.length) {
+        addLine(list, q ? 'Ничего не найдено.' : 'Журнал пуст.', 'text-sm text-muted');
+        return;
+      }
+      for (const item of rows) {
+        const box = document.createElement('article');
+        box.className = 'journal-item';
+        const meta = document.createElement('div');
+        meta.className = 'journal-meta';
+        meta.textContent = journalTime(item.at);
+        const badge = document.createElement('span');
+        badge.className = `badge ${item.phase === 'sql_ready' ? 'badge-ready' : item.phase === 'failed' ? 'badge-failed' : 'badge-phase'}`;
+        badge.textContent = phaseLabel[item.phase] || item.phase || 'запись';
+        meta.appendChild(badge);
+        box.appendChild(meta);
+        const title = document.createElement('div');
+        title.className = 'journal-q';
+        title.textContent = item.utterance || 'Без вопроса';
+        box.appendChild(title);
+        if (item.context?.utterance) addLine(box, `Опора: ${item.context.utterance}`, 'text-sm text-muted');
+        const trail = (item.events || []).map((event) => {
+          const name = eventLabel[event.event] || event.event;
+          return event.detail ? `${name}: ${event.detail}` : name;
+        }).join(' · ');
+        addLine(box, trail, 'text-sm text-muted mb-1');
+        for (const turn of item.turns || []) {
+          for (const question of turn.questions || []) {
+            addLine(box, `${question.text} → ${question.answer_label}`);
+          }
+        }
+        for (const question of item.phase === 'clarifying' ? (item.questions || []) : []) {
+          addLine(box, `Сейчас спрашивает: ${question.text}`);
+        }
+        if (item.plain || item.reading) {
+          const plain = document.createElement('div');
+          plain.className = 'plain-box';
+          plain.textContent = item.plain || item.reading;
+          box.appendChild(plain);
+        }
+        for (const line of item.inherited || []) addLine(box, `Перенесено: ${line}`);
+        for (const line of item.assumptions || []) addLine(box, line, 'text-sm text-muted');
+        if (item.refusal?.text) addLine(box, item.refusal.text, 'exec-error');
+        if (item.block) addLine(box, item.block, 'exec-error');
+        for (const error of item.validator_errors || []) addLine(box, error, 'exec-error');
+        if (item.execution) {
+          const exec = item.execution;
+          const problem = exec.error_message || exec.error || '';
+          addLine(box, [
+            exec.connection,
+            exec.rowCount == null ? '' : `${exec.rowCount} строк`,
+            exec.elapsedMs == null ? '' : `${exec.elapsedMs} мс`,
+            exec.truncated ? 'обрезано' : '',
+            problem,
+          ].filter(Boolean).join(' · '), problem ? 'exec-error' : 'text-sm text-muted');
+        }
+        if (item.sql) {
+          const details = document.createElement('details');
+          details.className = 'dev-accordion';
+          const summary = document.createElement('summary');
+          summary.textContent = 'SQL';
+          const pre = document.createElement('pre');
+          pre.className = 'code-block journal-sql';
+          pre.textContent = item.sql;
+          details.append(summary, pre);
+          box.appendChild(details);
+        }
+        list.appendChild(box);
+      }
+    }
+
+    async function loadJournal() {
+      const list = document.querySelector('#journal-list');
+      try {
+        const response = await fetch('/api/journal');
+        if (!response.ok) throw new Error('журнал не открылся');
+        const body = await response.json();
+        journalRows = body.dialogues || [];
+        renderJournal();
+      } catch (error) {
+        document.querySelector('#journal-count').textContent = 'нет данных';
+        list.replaceChildren();
+        addLine(list, error.message, 'text-sm text-muted');
+      }
+    }
+
+    document.querySelector('#journal-search').addEventListener('input', () => {
+      if (journalRows) renderJournal();
+    });
 
     const kindLabel = { letter: 'письмо', note: 'помета', skip: 'мимо' };
     let corpus = null;
@@ -1633,6 +1836,15 @@
       }
     }
 
+    function fillNotes(list, notes) {
+      list.replaceChildren();
+      for (const note of notes || []) {
+        const li = document.createElement('li');
+        li.textContent = note;
+        list.appendChild(li);
+      }
+    }
+
     function draw(next) {
       snapshot = next;
       id = next.id;
@@ -1681,6 +1893,9 @@
       buildQuestionsForm(document.querySelector('#answers'), next.questions);
 
       // --- USER VIEW UPDATE ---
+      const blockNode = document.querySelector('#user-block');
+      blockNode.textContent = next.block || '';
+      blockNode.classList.toggle('hidden', !next.block);
       document.querySelector('#user-utterance-text').textContent = next.reading || next.card?.plain || '—';
       const model = next.model || {};
       const ms = model.ms == null ? '' : `, ${model.ms} мс`;
@@ -1688,6 +1903,17 @@
       document.querySelector('#reasoning-state').textContent = next.reasoning
         ? `Рассуждение включено${ms}${tokens}`
         : `Рассуждение выключено${ms}`;
+
+      const contextNode = document.querySelector('#user-context');
+      if (next.context) {
+        const value = next.context.result?.value;
+        const answer = value === null || value === undefined ? `${next.context.result?.rowCount ?? 0} строк` : `ответ ${cellText(value)}`;
+        contextNode.textContent = `Опора: «${next.context.utterance}» — ${next.context.reading || '—'} · ${answer}`;
+        contextNode.classList.remove('hidden');
+      } else {
+        contextNode.textContent = '';
+        contextNode.classList.add('hidden');
+      }
 
       // Turns in user view
       const userTurnsCard = document.querySelector('#user-turns-card');
@@ -1733,6 +1959,7 @@
       if (next.phase === 'awaiting_confirm') {
         userConfirmCard.classList.remove('hidden');
         userPlain.textContent = next.card?.plain || '—';
+        fillNotes(document.querySelector('#user-notes-list'), next.card?.notes);
         userAssumptionsList.innerHTML = '';
         const assumptions = next.assumptions || next.card?.assumptions || [];
         if (assumptions.length) {
@@ -1745,6 +1972,15 @@
         } else {
           userAssumptionsBox.classList.add('hidden');
         }
+        const inheritedBox = document.querySelector('#user-inherited-box');
+        const inheritedList = document.querySelector('#user-inherited-list');
+        inheritedList.replaceChildren();
+        for (const item of next.inherited || []) {
+          const li = document.createElement('li');
+          li.textContent = item;
+          inheritedList.appendChild(li);
+        }
+        inheritedBox.classList.toggle('hidden', !(next.inherited || []).length);
       } else {
         userConfirmCard.classList.add('hidden');
       }
@@ -1754,10 +1990,15 @@
       if (next.phase === 'sql_ready') {
         userResultCard.classList.remove('hidden');
         document.querySelector('#user-result-plain').textContent = next.card?.plain || '—';
+        fillNotes(document.querySelector('#user-result-notes'), next.card?.notes);
         renderExecution(document.querySelector('#user-execution'), next.execution);
       } else {
         userResultCard.classList.add('hidden');
       }
+      const followup = document.querySelector('#user-followup');
+      const executed = next.phase === 'sql_ready' && next.execution && !next.execution.error;
+      followup.classList.toggle('hidden', !executed);
+      if (!executed) document.querySelector('#user-followup-input').value = '';
 
       // Failed card
       const userFailedCard = document.querySelector('#user-failed-card');
@@ -1880,6 +2121,28 @@
       return String(value);
     }
 
+    function csvCell(value) {
+      if (value === null || value === undefined) return '';
+      const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      if (/[";\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+      return text;
+    }
+
+    function downloadCsv(execution) {
+      const fields = execution.fields || [];
+      const lines = [fields.map((field) => csvCell(field.name)).join(';')];
+      for (const row of execution.rows || []) {
+        lines.push(fields.map((_, index) => csvCell(Array.isArray(row) ? row[index] : null)).join(';'));
+      }
+      const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const link = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      link.href = URL.createObjectURL(blob);
+      link.download = `carl-ask-${execution.connection || 'result'}-${stamp}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
     function renderExecution(node, execution) {
       node.replaceChildren();
       if (!execution) return;
@@ -1897,13 +2160,21 @@
       if (!fields.length) return;
       const meta = document.createElement('div');
       meta.className = 'result-meta';
-      meta.textContent = [
+      const info = document.createElement('span');
+      info.textContent = [
         execution.connection,
         execution.connectionInfo,
         `${execution.rowCount ?? 0} строк`,
         execution.elapsedMs == null ? '' : `${execution.elapsedMs} мс`,
         execution.truncated ? 'обрезано' : '',
       ].filter(Boolean).join(' · ');
+      const csv = document.createElement('button');
+      csv.type = 'button';
+      csv.className = 'btn btn-secondary btn-sm';
+      csv.textContent = 'CSV';
+      csv.title = execution.truncated ? 'В файле только строки на экране, выдача обрезана' : 'Скачать таблицу';
+      csv.addEventListener('click', () => downloadCsv(execution));
+      meta.append(info, csv);
       node.appendChild(meta);
       const wrap = document.createElement('div');
       wrap.className = 'result-wrap';
@@ -2016,6 +2287,26 @@
         }, reasoning
           ? 'Модель разбирает вопрос с рассуждением. Обычно это около минуты.'
           : 'Модель разбирает вопрос без рассуждения. Обычно это несколько секунд.'));
+      } catch (error) {
+        fail(error);
+      } finally {
+        setBusy('');
+      }
+    });
+
+    document.querySelector('#user-followup').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const input = document.querySelector('#user-followup-input');
+      const utterance = input.value.trim();
+      if (!utterance || !id) return;
+      try {
+        draw(await api('/api/dialogues', {
+          method: 'POST',
+          body: JSON.stringify({ utterance, parent_id: id }),
+        }, 'Модель разбирает вопрос с опорой на прошлый…'));
+        input.value = '';
+        document.querySelector('#utterance').value = utterance;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (error) {
         fail(error);
       } finally {

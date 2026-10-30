@@ -5,7 +5,44 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createStore } from '../src/dialogue.js';
-import { fileJournal } from '../src/journal.js';
+import { fileJournal, presentJournal } from '../src/journal.js';
+
+test('journal view is newest first and drops the prompt', () => {
+  const rows = presentJournal([
+    {
+      at: '2026-10-30T10:00:00.000Z',
+      event: 'open',
+      dialogue_id: 'a',
+      utterance: 'первый',
+      prompt: 'SECRET-PROMPT',
+      snapshot: { utterance: 'первый', phase: 'clarifying', turns: [], card: { plain: 'понимание 1' } },
+    },
+    {
+      at: '2026-10-30T11:00:00.000Z',
+      event: 'open',
+      dialogue_id: 'b',
+      utterance: 'второй',
+      prompt: 'SECRET-PROMPT',
+      snapshot: { utterance: 'второй', phase: 'failed', refusal: { code: 'COLUMN_ABSENT', text: 'колонки ИНН нет' } },
+    },
+    {
+      at: '2026-10-30T10:05:00.000Z',
+      event: 'answer',
+      dialogue_id: 'a',
+      snapshot: {
+        utterance: 'первый',
+        phase: 'awaiting_confirm',
+        turns: [{ round: 1, questions: [{ text: 'кто', answer_label: 'все' }] }],
+        card: { plain: 'понимание 1' },
+      },
+    },
+  ]);
+  assert.equal(rows[0].utterance, 'второй');
+  assert.equal(rows[1].utterance, 'первый');
+  assert.equal(rows[1].phase, 'awaiting_confirm');
+  assert.equal(rows[1].turns[0].questions[0].answer_label, 'все');
+  assert.equal(JSON.stringify(rows).includes('SECRET-PROMPT'), false);
+});
 
 test('journal appends the dialogue and strips the model key', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'carl-ask-'));

@@ -84,6 +84,12 @@ test('the debug tab reads the question corpus', async () => {
     const html = await page.text();
     assert.match(html, /id="tab-debug"/);
     assert.match(html, /Отладка/);
+    assert.match(html, /id="tab-journal"/);
+    assert.match(html, /Журнал/);
+    const journal = await fetch(`http://127.0.0.1:${port}/api/journal`);
+    assert.equal(journal.status, 200);
+    const journalBody = await journal.json();
+    assert.equal(Array.isArray(journalBody.dialogues), true);
     const corpus = await fetch(`http://127.0.0.1:${port}/api/corpus`);
     assert.equal(corpus.status, 200);
     const body = await corpus.json();

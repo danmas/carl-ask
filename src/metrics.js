@@ -104,6 +104,41 @@ function typeLit(slots) {
   return found ? lit(found.value) : 'NULL';
 }
 
+const ABSORBED_FILTERS = {
+  sales_count_by_period: ['is_deleted'],
+  profile_bid_count: ['is_deleted'],
+  profile_purchase_count: ['is_deleted'],
+  buyer_seller_activity: ['is_deleted', 'is_buyer'],
+  buyer_registration_period: ['is_deleted', 'is_buyer'],
+  lots_from_reports_by_user: ['is_deleted'],
+  users_with_profile_roles: ['is_deleted'],
+};
+
+const TEMPLATE_FILTERS = {
+  sales_count_by_period: ['status', 'object_type_top_name'],
+  active_lots: ['status', 'is_deleted'],
+  deposit_thresholds: ['is_deleted'],
+  profile_bid_count: ['id_profile_bid', 'id_profile', 'id_profile_seller'],
+  buyer_purchases_and_commission: ['status', 'is_deleted', 'object_type_top_name', 'id_profile_leader'],
+  users_with_profile_roles: [],
+  buyer_seller_activity: ['id_profile_seller'],
+  buyer_registration_period: [],
+  profile_purchase_count: ['status', 'id_profile_leader', 'id_profile', 'id_profile_seller'],
+  lots_from_reports_by_user: ['id_user', 'id_user_inspector', 'status'],
+};
+
+export function ignoredFilters(metricId, slots) {
+  const known = TEMPLATE_FILTERS[metricId];
+  if (!known) return [];
+  const absorbed = new Set(ABSORBED_FILTERS[metricId] || []);
+  return filters(slots).filter((f) => f.column && !known.includes(f.column) && !absorbed.has(f.column)).map((f) => f.column);
+}
+
+export function absorbedFilters(metricId, slots) {
+  const absorbed = new Set(ABSORBED_FILTERS[metricId] || []);
+  return filters(slots).filter((f) => absorbed.has(f.column)).map((f) => f.column);
+}
+
 export function deletedLots(metricId, slots) {
   if (metricId === 'sales_count_by_period' || metricId === 'profile_purchase_count') return 'включены';
   if (metricId === 'active_lots' || metricId === 'buyer_purchases_and_commission') return 'исключены';
@@ -309,19 +344,29 @@ WHERE status IN ('SUCCESS', 'BUYNOW')
   lots_from_reports_by_user(slots) {
     const column = timeColumn(slots);
     const { from, to } = bounds(slots);
+    const numeric = (filter) => filter && /^\d+$/.test(String(filter.value));
     const maker = eqFilter(slots, 'id_user');
     const inspector = eqFilter(slots, 'id_user_inspector');
-    const who = maker || inspector;
-    if (!who || !/^\d+$/.test(String(who.value))) {
+    const who = numeric(maker) ? maker : numeric(inspector) ? inspector : null;
+    if (!who && !slots.params?.all_users) {
       const error = new Error('Номер пользователя пустой');
       error.code = 'PARAM';
       throw error;
     }
-    const userColumn = maker ? 'id_user' : 'id_user_inspector';
+    const userSql = who ? `AND ${who.column} = ${who.value}` : '';
+    const status = filters(slots).find((f) => f.column === 'status');
+    const statuses = status ? (Array.isArray(status.value) ? status.value : [status.value]).map(String) : [];
+    if (statuses.some((value) => !/^[A-Z]+$/.test(value))) {
+      const error = new Error('Статус лота не из списка');
+      error.code = 'PARAM';
+      throw error;
+    }
+    const statusSql = statuses.length ? `AND status IN (${statuses.map((value) => `'${value}'`).join(', ')})` : '';
     return `SELECT count(*)::bigint AS lots_from_reports
 FROM carl_an.v_lot_from_report_an
-WHERE ${userColumn} = ${who.value}
-  AND ${column} >= ${from}
-  AND ${column} < ${to};`;
+WHERE ${column} >= ${from}
+  AND ${column} < ${to}
+  ${userSql}
+  ${statusSql};`;
   },
 };

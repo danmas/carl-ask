@@ -5,14 +5,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createConnectionSet } from './connections.js';
 import { createStore } from './dialogue.js';
-import { fileJournal } from './journal.js';
+import { fileJournal, presentJournal, readJournal } from './journal.js';
 import { createModelParser } from './model.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const page = join(root, 'public', 'index.html');
 const corpusFile = join(root, 'data', 'corpus.json');
 const verifiedFile = join(root, 'data', 'corpus-verified.json');
-const journal = fileJournal(join(root, 'logs'));
+const logsDir = join(root, 'logs');
+const journal = fileJournal(logsDir);
 const configFile = join(root, 'config.json');
 
 function loadConnections() {
@@ -74,6 +75,10 @@ export function createApp(store = createStore(createModelParser(), journal), dep
         send(res, 200, connections.list());
         return;
       }
+      if (req.method === 'GET' && url.pathname === '/api/journal') {
+        send(res, 200, { dialogues: presentJournal(readJournal(logsDir)) });
+        return;
+      }
       if (req.method === 'GET' && url.pathname === '/api/corpus') {
         const items = JSON.parse(readFileSync(corpusFile, 'utf8'));
         send(res, 200, { items, verified: readVerified() });
@@ -94,7 +99,8 @@ export function createApp(store = createStore(createModelParser(), journal), dep
           send(res, 400, { error: 'нужна строка utterance' });
           return;
         }
-        send(res, 201, await store.open(body.utterance, { reasoning: body.reasoning === true }));
+        const parentId = typeof body.parent_id === 'string' && body.parent_id ? body.parent_id : null;
+        send(res, 201, await store.open(body.utterance, { reasoning: body.reasoning === true, parentId }));
         return;
       }
       const match = url.pathname.match(/^\/api\/dialogues\/([^/]+)(?:\/(answers|confirm|reject|execute))?$/);
@@ -136,7 +142,7 @@ export function createApp(store = createStore(createModelParser(), journal), dep
       send(res, 404, { error: 'нет такого метода' });
     } catch (error) {
       journal({ event: 'http_error', path: url.pathname, message: error.message, code: error.code || null });
-      const status = error.code === 'MODEL_UNSET' ? 503 : error.code === 'MODEL_TIMEOUT' ? 504 : error.code === 'PHASE' ? 409 : 400;
+      const status = error.code === 'MODEL_UNSET' ? 503 : error.code === 'MODEL_TIMEOUT' ? 504 : error.code === 'PHASE' || error.code === 'PARENT_STATE' ? 409 : error.code === 'PARENT' ? 404 : 400;
       send(res, status, { error: error.message });
     }
   });

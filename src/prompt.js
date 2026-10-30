@@ -16,7 +16,7 @@ const RULES = `Разрешены только carl_an.t_auct_total_an, carl_an.
 prof_buy с prof_sel не соединять. Не читать v_auct_total_an, v_auct_bids_an, v_prof_total_an, auct_total_an, auct_bids_an, amo_data, amo_json, tmp_*. Вьюха v_ допустима, если она в каталоге колонок. Колонку ?column? не выбирать. SELECT * не писать.`;
 
 const SLOT_SCHEMA = `Верни только JSON объекта слотов. Шкалу понятности и числа 1-7 не возвращай. Текст отказа не пиши: поле refusal — только code или null.
-Коды refusal, и только они: MART_MISSING_TYPE_PARENT (родитель типа стройка/сельхоз), NO_BID_TAPE (строка = одно событие ставки), COLUMN_ABSENT (колонки нет, и это не роль профиля). Иной код не ставь. Подписчик не используется: из-за него отказ не ставь. Все роли профиля — is_buyer и is_seller. Массив profile.roles не нужен. dt_last_login на carl_an.users есть: последний вход, не отказ.
+Коды refusal, и только они: MART_MISSING_TYPE_PARENT (родитель типа стройка/сельхоз), NO_BID_TAPE (строка = одно событие ставки), COLUMN_ABSENT (колонки нет). Иной код не ставь. Для COLUMN_ABSENT верни {"code":"COLUMN_ABSENT","column":"имя как у человека"}. Текст отказа не пиши. Если колонки нет, не подменяй её другой и не клади это в assumptions: ставь refusal. Подписчик не используется: из-за него отказ не ставь. Все роли профиля — is_buyer и is_seller. Массив profile.roles не нужен. dt_last_login на carl_an.users есть: последний вход, не отказ.
 Схема:
 {"metric":{"agg":"count|sum|avg|min|max|list","field":null},"grain":"auction|bid_profile|profile|user","mart":"carl_an.<отношение>","time":null,"dimensions":[],"filters":[{"column":"","op":"=","value":""}],"assumptions":[],"missing":[],"period_stated":false,"refusal":null,"params":{}}
 list — выгрузка. При list поле metric.field пустое, кроме депозита: field = deposit_balance.
@@ -33,11 +33,24 @@ export function cardsText() {
   return CARDS;
 }
 
-export function buildParsePrompt(utterance) {
+function contextBlock(context) {
+  if (!context) return '';
+  return [
+    'Опора — прошлый выполненный вопрос этого человека.',
+    `Прошлая фраза:\n${context.utterance}`,
+    `Слоты прошлого вопроса:\n${JSON.stringify(context.slots)}`,
+    'Верни полный объект слотов, не дельту. Новая фраза главнее опоры.',
+    'Если новая фраза уточняет прошлый вопрос (их, эти, тот же, а теперь, а за, а по, а только, списком, по ним), возьми из опоры витрину, зерно, период, фильтры и params, кроме того, что новая фраза меняет.',
+    'Если новая фраза о другом предмете, опору не бери.',
+    'Результата прошлого запроса у тебя нет. Числа из него не подставляй.',
+  ].join('\n');
+}
+
+export function buildParsePrompt(utterance, context = null) {
   const examples = FEW_SHOT.map((item, index) => `Пример ${index + 1}: ${item}`).join('\n');
   const today = new Date().toISOString().slice(0, 10);
   const clock = `Сегодня ${today}. Месяц без года считай в этом году.`;
-  return [CARDS, RULES, SLOT_SCHEMA, clock, examples, `Фраза:\n${utterance}`].filter(Boolean).join('\n\n');
+  return [CARDS, RULES, SLOT_SCHEMA, clock, examples, contextBlock(context), `Фраза:\n${utterance}`].filter(Boolean).join('\n\n');
 }
 
 export function buildSqlPrompt(card, errors) {

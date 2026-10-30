@@ -67,7 +67,10 @@ function gapFilled(slots, gap) {
   if (gap === 'id_profile_seller') {
     return filterHas(slots, 'id_profile_seller') || Object.prototype.hasOwnProperty.call(slots.params || {}, 'id_profile_seller');
   }
-  if (gap === 'id_user') return filterHas(slots, 'id_user') || filterHas(slots, 'id_user_inspector');
+  if (gap === 'id_user') {
+    if (slots.params?.all_users) return true;
+    return ['id_user', 'id_user_inspector'].some((column) => (slots.filters || []).some((f) => f.column === column && /^\d+$/.test(String(f.value ?? ''))));
+  }
   if (gap === 'thresholds') {
     const p = slots.params || {};
     return [p.fl_min, p.fl_max, p.ip_min, p.ip_max].every((v) => v !== undefined && v !== null);
@@ -236,7 +239,7 @@ function questionFor(slot, slots) {
     return { text: 'Номер профиля продавца. Пусто — продавец любой.', control: { type: 'text' } };
   }
   if (slot === 'id_user') {
-    return { text: 'Номер пользователя, который создал лот из отчёта. Автор отчёта — другой человек.', control: { type: 'text' } };
+    return { text: 'Номер пользователя, который создал лот из отчёта. «все» — по всем пользователям. Автор отчёта — другой человек.', control: { type: 'text' } };
   }
   if (slot === 'thresholds') {
     return {

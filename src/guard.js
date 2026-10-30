@@ -54,6 +54,17 @@ function applySellerActivity(utterance, out) {
   out.missing = (out.missing || []).filter((name) => !['metric.agg', 'metric.field', 'grain', 'mart', 'time', 'time.column'].includes(name));
 }
 
+function admitsMissingColumn(line) {
+  return /колонк/i.test(line) && /нет/i.test(line);
+}
+
+function applyMissingColumn(out) {
+  const hit = (out.assumptions || []).find(admitsMissingColumn);
+  if (!hit) return;
+  out.assumptions = (out.assumptions || []).filter((line) => !admitsMissingColumn(line));
+  out.refusal = { code: 'COLUMN_ABSENT', assumption: hit };
+}
+
 function applyProfileRoles(utterance, out) {
   if (refusalCode(out) === 'COLUMN_ABSENT') out.refusal = null;
   out.metric = { ...(out.metric || {}), agg: 'list' };
@@ -85,9 +96,9 @@ function saleOnly(filter) {
   return values.length > 0 && values.every((value) => SALE_STATUS.has(value));
 }
 
-export function guardPhrase(utterance, slots) {
+export function guardPhrase(utterance, slots, { contextUtterance = '' } = {}) {
   const out = structuredClone(slots);
-  const sale = mentionsSale(utterance);
+  const sale = mentionsSale(utterance) || mentionsSale(contextUtterance);
   if (!sale) {
     out.filters = (out.filters || []).filter((filter) => !saleOnly(filter));
     out.assumptions = (out.assumptions || []).filter((line) => !(/продаж/i.test(line) && /SUCCESS|BUYNOW/i.test(line)));
@@ -106,6 +117,7 @@ export function guardPhrase(utterance, slots) {
     delete out.metric.field;
     out.missing = (out.missing || []).filter((name) => name !== 'id_profile' && name !== 'id_profile_seller' && name !== 'metric.field');
   }
+  applyMissingColumn(out);
   if (PROFILE_ROLES.test(utterance || '')) applyProfileRoles(utterance, out);
   if (SELLER_ACTIVITY.test(utterance || '')) applySellerActivity(utterance, out);
   const mart = relationName(out.mart);

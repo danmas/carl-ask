@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { allGaps, next } from '../src/policy.js';
-import { REFUSAL_TEXT } from '../src/refusals.js';
+import { columnAbsentText, REFUSAL_TEXT } from '../src/refusals.js';
 
 test('round 1 asks at most three of five gaps and skips a filled slot', () => {
   const slots = {
@@ -163,6 +163,20 @@ test('a known refusal stops with the fixed text', () => {
     refusal: { code: 'COLUMN_ABSENT', text: 'модель не пишет эту фразу' },
   }, 0);
   assert.equal(decision.phase, 'failed');
-  assert.equal(decision.refusal.text, REFUSAL_TEXT.COLUMN_ABSENT);
+  assert.equal(decision.refusal.text, columnAbsentText(''));
+  assert.equal(decision.refusal.text.includes('roles'), false);
+  const named = next({
+    metric: { agg: 'list' },
+    grain: 'profile',
+    mart: 'carl_an.prof_buy',
+    filters: [],
+    params: {},
+    missing: [],
+    refusal: { code: 'COLUMN_ABSENT', column: 'inn', text: 'модель не пишет эту фразу' },
+  }, 0);
+  assert.equal(named.refusal.text, columnAbsentText('inn'));
+  assert.equal(named.refusal.text.includes('roles'), false);
+  const roles = next({ metric: { agg: 'list' }, grain: 'profile', mart: 'carl_an.prof_total_an', filters: [], params: {}, missing: [], refusal: { code: 'COLUMN_ABSENT', column: 'roles' } }, 0);
+  assert.equal(roles.refusal.text, REFUSAL_TEXT.COLUMN_ABSENT);
   assert.equal(decision.questions.length, 0);
 });

@@ -9,9 +9,33 @@ export const REFUSAL_TEXT = {
 
 export const REFUSAL_CODES = new Set(Object.keys(REFUSAL_TEXT));
 
-export function knownRefusal(slots) {
-  const raw = slots?.refusal;
+const ROLE_COLUMN = /^(roles?|subscriber|подписчик)$/i;
+
+export function columnAbsentText(column) {
+  const name = String(column || '').trim();
+  if (ROLE_COLUMN.test(name)) return REFUSAL_TEXT.COLUMN_ABSENT;
+  if (!name) return 'В снимке нет запрошенной колонки. Подменять её другой нельзя.';
+  return `В снимке нет колонки ${name}. Подменять её другой нельзя.`;
+}
+
+export function normalizeRefusal(raw) {
   const code = typeof raw === 'string' ? raw : raw?.code;
   if (!code || !REFUSAL_CODES.has(code)) return null;
-  return { code, text: REFUSAL_TEXT[code] };
+  const refusal = { code };
+  if (code === 'COLUMN_ABSENT' && raw && typeof raw === 'object') {
+    const column = String(raw.column || '').trim();
+    if (column && column.length <= 80 && !/[\n\r]/.test(column)) refusal.column = column;
+  }
+  return refusal;
+}
+
+export function knownRefusal(slots) {
+  const raw = slots?.refusal;
+  const refusal = normalizeRefusal(raw);
+  if (!refusal) return null;
+  if (refusal.code === 'COLUMN_ABSENT') {
+    const assumption = raw && typeof raw === 'object' && typeof raw.assumption === 'string' ? raw.assumption.trim() : '';
+    return { code: refusal.code, column: refusal.column || null, text: assumption || columnAbsentText(refusal.column) };
+  }
+  return { code: refusal.code, text: REFUSAL_TEXT[refusal.code] };
 }
