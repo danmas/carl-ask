@@ -33,6 +33,7 @@ export function matchMetric(slots) {
     return 'buyer_purchases_and_commission';
   }
   if (agg === 'count' && mart === 't_auct_total_an' && statusValues(slots).includes('SUCCESS')) return 'sales_count_by_period';
+  if (agg === 'count' && mart === 'v_lot_from_report_an') return 'lots_from_reports_by_user';
   return null;
 }
 
@@ -107,6 +108,7 @@ export function deletedLots(metricId, slots) {
   if (metricId === 'sales_count_by_period' || metricId === 'profile_purchase_count') return 'включены';
   if (metricId === 'active_lots' || metricId === 'buyer_purchases_and_commission') return 'исключены';
   if (metricId === 'profile_bid_count' && sellerId(slots) !== 'NULL') return 'включены';
+  if (metricId === 'lots_from_reports_by_user') return 'включены';
   return null;
 }
 
@@ -303,5 +305,23 @@ WHERE status IN ('SUCCESS', 'BUYNOW')
   AND ${column} >= ${from}
   AND ${column} < ${to}
   AND (${seller} IS NULL OR id_profile_seller = ${seller});`;
+  },
+  lots_from_reports_by_user(slots) {
+    const column = timeColumn(slots);
+    const { from, to } = bounds(slots);
+    const maker = eqFilter(slots, 'id_user');
+    const inspector = eqFilter(slots, 'id_user_inspector');
+    const who = maker || inspector;
+    if (!who || !/^\d+$/.test(String(who.value))) {
+      const error = new Error('Номер пользователя пустой');
+      error.code = 'PARAM';
+      throw error;
+    }
+    const userColumn = maker ? 'id_user' : 'id_user_inspector';
+    return `SELECT count(*)::bigint AS lots_from_reports
+FROM carl_an.v_lot_from_report_an
+WHERE ${userColumn} = ${who.value}
+  AND ${column} >= ${from}
+  AND ${column} < ${to};`;
   },
 };

@@ -142,7 +142,7 @@ export function createApp(store = createStore(createModelParser(), journal), dep
   });
 }
 
-export function listen(port = Number(process.env.PORT || 8787)) {
+export function listen(port = Number(process.env.PORT || 8799)) {
   const server = createApp();
   server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
@@ -158,5 +158,5 @@ export function listen(port = Number(process.env.PORT || 8787)) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  listen(Number(process.env.PORT || 8787));
+  listen(Number(process.env.PORT || 8799));
 }

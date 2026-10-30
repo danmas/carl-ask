@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { STORED_HASHES, catalogHash, columnsOf, hashMismatches } from '../src/catalog.js';
+import { render } from '../src/metrics.js';
 import { validate } from '../src/validator.js';
 
 const join = `SELECT sum(b.count)
@@ -15,8 +16,30 @@ for (const name of ['v_auct_total_an', 'v_auct_bids_an', 'v_prof_total_an', 'auc
   test(`${name} is rejected`, () => {
     const checked = validate(`SELECT id_auction FROM carl_an.${name}`);
     assert.equal(checked.ok, false);
+    assert.match(checked.errors.join(' '), /запрещено/);
   });
 }
+
+test('lots made from reports by a user pass the validator', () => {
+  const rendered = render({
+    metric: { agg: 'count' },
+    grain: 'auction',
+    mart: 'carl_an.v_lot_from_report_an',
+    time: { column: 'dt_create', from: '2026-01-01', to: '2026-02-01' },
+    filters: [{ column: 'id_user', op: '=', value: 4 }],
+  });
+  assert.equal(validate(rendered.sql).ok, true, validate(rendered.sql).errors.join('; '));
+  assert.match(rendered.sql, /v_lot_from_report_an/);
+  assert.match(rendered.sql, /id_user = 4/);
+  assert.match(rendered.sql, /dt_create >= '2026-01-01'/);
+});
+
+test('a v_ name outside the catalog is missing from the allowlist', () => {
+  const checked = validate('SELECT key FROM carl_an.v_inspect_an');
+  assert.equal(checked.ok, false);
+  assert.match(checked.errors.join(' '), /вне allowlist/);
+  assert.doesNotMatch(checked.errors.join(' '), /запрещено/);
+});
 
 test('buyer and seller slices are not joined', () => {
   const checked = validate(`SELECT b.id_profile

@@ -9,7 +9,7 @@ const DEPOSIT = /депозит/i;
 const EXPOSURE = /экспозиц/i;
 const SALE_STATUS = new Set(['SUCCESS', 'BUYNOW']);
 const DATE_COLS = new Set([
-  'dt_end', 'dt_start', 'dt_active', 'dt_approve', 'dt_create', 'dt_change_status', 'dt_set_lead',
+  'dt_end', 'dt_start', 'dt_active', 'dt_approve', 'dt_create', 'dt_change_status', 'dt_set_lead', 'dt_update', 'dt_report',
 ]);
 
 const ALL_STATUSES = 'Экспозиция — все статусы лота. Фильтр продажи не ставился: во фразе нет продажи.';

@@ -18,6 +18,15 @@
       "usePool": true,
       "maxPoolSize": 5,
       "readOnly": true
+    },
+    "dist": {
+      "host": "192.168.1.212",
+      "port": 5432,
+      "database": "carlinkng",
+      "user": "carl",
+      "password": "1",
+      "usePool": true,
+      "maxPoolSize": 5
     }
   },
   "query": {

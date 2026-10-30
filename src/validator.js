@@ -80,7 +80,7 @@ export function validate(sql) {
     if (!rel.schema || rel.schema.toLowerCase() !== 'carl_an') errors.push(`схема не carl_an: ${rel.schema || rel.name}`);
     const table = rel.name.toLowerCase();
     names.push(table);
-    if (FORBIDDEN.includes(table) || table.startsWith('tmp_') || table.startsWith('v_')) errors.push(`отношение ${table} запрещено`);
+    if (FORBIDDEN.includes(table) || table.startsWith('tmp_')) errors.push(`отношение ${table} запрещено`);
     else if (!RELATIONS.includes(table)) errors.push(`отношение ${table} вне allowlist`);
   }
   if (names.includes('prof_buy') && names.includes('prof_sel')) errors.push('prof_buy и prof_sel не соединяются');

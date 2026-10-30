@@ -43,9 +43,14 @@ export const JOIN_PAIRS = [
   { a: 'prof_total_an', b: 'users', keys: [['id_user_owner', 'id_user']] },
   { a: 'prof_sel', b: 'users', keys: [['id_user_owner', 'id_user']] },
   { a: 'prof_buy', b: 'users', keys: [['id_user_owner', 'id_user']] },
+  { a: 'v_lot_from_report_an', b: 'users', keys: [['id_user', 'id_user'], ['id_user_inspector', 'id_user']] },
+  { a: 'v_lot_from_report_an', b: 't_auct_total_an', keys: [['id_auction', 'id_auction']] },
+  { a: 'v_inspect_report_an', b: 'users', keys: [['id_user', 'id_user']] },
+  { a: 'v_inspect_report_an', b: 't_auct_total_an', keys: [['id_auction', 'id_auction'], ['key', 'inspect_key']] },
+  { a: 'v_inspect_report_an', b: 'v_lot_from_report_an', keys: [['key', 'inspect_key'], ['id_auction', 'id_auction']] },
 ];
 
-export const TIME_COLUMNS = ['dt_end', 'dt_change_status', 'dt_start', 'dt_active', 'dt_approve', 'dt_create'];
+export const TIME_COLUMNS = ['dt_end', 'dt_change_status', 'dt_start', 'dt_active', 'dt_approve', 'dt_create', 'dt_update', 'dt_report'];
 
 export const STORED_HASHES = snapshot.hashes;
 

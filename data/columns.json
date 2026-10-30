@@ -7,7 +7,9 @@
     "prof_total_an": "6672d8d16a91094e27c5b1d03281dadf",
     "t_auct_bids_an": "cae6e54af58b89e2e82b79196b318dd8",
     "t_auct_total_an": "648f27a0f79ed0a3205b035213bc870a",
-    "users": "8db785f91b1d81380ee7a0682c62a2e4"
+    "users": "8db785f91b1d81380ee7a0682c62a2e4",
+    "v_inspect_report_an": "6de9c30ff1b9f1007d0a5f1ca289f33e",
+    "v_lot_from_report_an": "b296de5576881106150cf53758f6dd45"
   },
   "tables": {
     "prof_buy": [
@@ -1031,6 +1033,38 @@
         "name": "reg_domain",
         "type": "character varying"
       }
+    ],
+    "v_inspect_report_an": [
+      { "ordinal": 1, "name": "id_inspect_report", "type": "integer" },
+      { "ordinal": 2, "name": "key", "type": "bigint" },
+      { "ordinal": 3, "name": "id_user", "type": "integer" },
+      { "ordinal": 4, "name": "id_auction", "type": "integer" },
+      { "ordinal": 5, "name": "id_object_type", "type": "integer" },
+      { "ordinal": 6, "name": "id_access_group", "type": "integer" },
+      { "ordinal": 7, "name": "status", "type": "character varying" },
+      { "ordinal": 8, "name": "verified", "type": "boolean" },
+      { "ordinal": 9, "name": "paid", "type": "boolean" },
+      { "ordinal": 10, "name": "public", "type": "boolean" },
+      { "ordinal": 11, "name": "is_deleted", "type": "character varying" },
+      { "ordinal": 12, "name": "expert_cert", "type": "boolean" },
+      { "ordinal": 13, "name": "city", "type": "character varying" },
+      { "ordinal": 14, "name": "dt_create", "type": "timestamp with time zone" },
+      { "ordinal": 15, "name": "dt_update", "type": "timestamp with time zone" },
+      { "ordinal": 16, "name": "id_user_verify", "type": "integer" }
+    ],
+    "v_lot_from_report_an": [
+      { "ordinal": 1, "name": "id_auction", "type": "integer" },
+      { "ordinal": 2, "name": "dt_create", "type": "timestamp with time zone" },
+      { "ordinal": 3, "name": "status", "type": "USER-DEFINED" },
+      { "ordinal": 4, "name": "is_deleted", "type": "character" },
+      { "ordinal": 5, "name": "id_user", "type": "integer" },
+      { "ordinal": 6, "name": "id_profile", "type": "integer" },
+      { "ordinal": 7, "name": "id_user_profile", "type": "integer" },
+      { "ordinal": 8, "name": "inspect_key", "type": "bigint" },
+      { "ordinal": 9, "name": "id_inspect_report", "type": "integer" },
+      { "ordinal": 10, "name": "id_user_inspector", "type": "integer" },
+      { "ordinal": 11, "name": "dt_report", "type": "timestamp with time zone" },
+      { "ordinal": 12, "name": "report_is_deleted", "type": "character varying" }
     ]
   }
 }

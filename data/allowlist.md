@@ -14,6 +14,8 @@
 | `carl_an.prof_sel` | table, est ~2.0k | 28 | `6672d8d16a91094e27c5b1d03281dadf` | профиль-продавец |
 | `carl_an.prof_buy` | table, est ~35k | 30 | `0bd7dbeb3ed0c51b7929b79bbb5efc01` | профиль-покупатель |
 | `carl_an.users` | table, est ~177k | 14 | `8db785f91b1d81380ee7a0682c62a2e4` | пользователь |
+| `carl_an.v_inspect_report_an` | view, объявлена в `GROK_v_inspect_an.sql`, на wpl2 ещё не сверена | 16 | `6de9c30ff1b9f1007d0a5f1ca289f33e` | отчёт |
+| `carl_an.v_lot_from_report_an` | view, объявлена в `GROK_v_inspect_an.sql`, на wpl2 ещё не сверена | 12 | `b296de5576881106150cf53758f6dd45` | лот из отчёта |
 
 Это таблицы-снимки. `update_prof_total_an` пересобирает три профильные, `update_users_an` — пользователей. На чтении функций нет.
 
@@ -28,6 +30,11 @@
 | `t_auct_bids_an` | `prof_*` | `id_profile_bid = id_profile` |
 | `t_auct_bids_an` | `users` | `id_user_bid = id_user` |
 | `prof_*` | `users` | `id_user_owner = id_user` |
+| `v_lot_from_report_an` | `users` | `id_user = id_user` или `id_user_inspector = id_user` |
+| `v_lot_from_report_an` | `t_auct_total_an` | `id_auction = id_auction` |
+| `v_inspect_report_an` | `users` | `id_user = id_user` |
+| `v_inspect_report_an` | `t_auct_total_an` | `id_auction = id_auction` или `key = inspect_key` |
+| `v_inspect_report_an` | `v_lot_from_report_an` | `key = inspect_key` или `id_auction = id_auction` |
 
 На wpl2 в `t_auct_bids_an` 350042 различных `id_auction`, и все они есть в `t_auct_total_an`. Со стороны ставок это много строк на один лот. Фраза 8 это соединение не требует: продавец и лидер лежат в `t_auct_total_an`. Фраза 7 требует, если нужен фильтр продавца.
 

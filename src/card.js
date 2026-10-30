@@ -9,6 +9,8 @@ const FRESHNESS = {
   prof_sel: 'job_name update_prof_total_an. Свежесть — max(finished_at) этой строки на момент вопроса, не дата из карточки.',
   prof_buy: 'job_name update_prof_total_an. Свежесть — max(finished_at) этой строки на момент вопроса, не дата из карточки.',
   users: 'job_name update_users_an, target_table users. Свежесть — max(finished_at) на момент вопроса.',
+  v_inspect_report_an: 'Вьюха на carl_data.inspect_report. Читается в момент запроса, ночного снимка нет.',
+  v_lot_from_report_an: 'Вьюха: лот, у которого inspect_report.id_auction совпал. Читается в момент запроса.',
 };
 
 export function buildCard(slots, assumptions = []) {

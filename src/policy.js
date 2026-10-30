@@ -2,7 +2,7 @@ import { relationName } from './catalog.js';
 import { knownRefusal } from './refusals.js';
 import { matchMetric } from './metrics.js';
 
-const ASK_ORDER = ['metric.agg', 'grain', 'mart', 'metric.field', 'time', 'id_profile', 'id_profile_seller', 'thresholds'];
+const ASK_ORDER = ['metric.agg', 'grain', 'mart', 'metric.field', 'time', 'id_profile', 'id_profile_seller', 'id_user', 'thresholds'];
 
 const TIME_OPTIONS = [
   { value: 'dt_end', label: 'окончание торгов' },
@@ -18,8 +18,22 @@ const USER_TIME_OPTIONS = [
   { value: 'dt_created', label: 'регистрация пользователя' },
 ];
 
+const REPORT_TIME_OPTIONS = [
+  { value: 'dt_create', label: 'создание отчёта' },
+  { value: 'dt_update', label: 'обновление отчёта' },
+];
+
+const LOT_FROM_REPORT_TIME_OPTIONS = [
+  { value: 'dt_create', label: 'создание лота из отчёта' },
+  { value: 'dt_report', label: 'создание отчёта' },
+];
+
 function timeOptions(slots) {
-  return String(slots.mart || '').endsWith('users') ? USER_TIME_OPTIONS : TIME_OPTIONS;
+  const mart = String(slots.mart || '');
+  if (mart.endsWith('users')) return USER_TIME_OPTIONS;
+  if (mart.endsWith('v_inspect_report_an')) return REPORT_TIME_OPTIONS;
+  if (mart.endsWith('v_lot_from_report_an')) return LOT_FROM_REPORT_TIME_OPTIONS;
+  return TIME_OPTIONS;
 }
 
 export function timeRequired(slots) {
@@ -53,6 +67,7 @@ function gapFilled(slots, gap) {
   if (gap === 'id_profile_seller') {
     return filterHas(slots, 'id_profile_seller') || Object.prototype.hasOwnProperty.call(slots.params || {}, 'id_profile_seller');
   }
+  if (gap === 'id_user') return filterHas(slots, 'id_user') || filterHas(slots, 'id_user_inspector');
   if (gap === 'thresholds') {
     const p = slots.params || {};
     return [p.fl_min, p.fl_max, p.ip_min, p.ip_max].every((v) => v !== undefined && v !== null);
@@ -78,6 +93,7 @@ export function paramGaps(slots) {
     gaps.push('id_profile', 'id_profile_seller');
   }
   if (id === 'deposit_thresholds') gaps.push('thresholds');
+  if (id === 'lots_from_reports_by_user') gaps.push('id_user');
   return gaps.filter((gap) => !gapFilled(slots, gap));
 }
 
@@ -169,6 +185,8 @@ function questionFor(slot, slots) {
           { value: 'prof_sel', label: 'продавцы' },
           { value: 'prof_buy', label: 'покупатели' },
           { value: 'users', label: 'пользователи' },
+          { value: 'v_lot_from_report_an', label: 'лоты из отчётов' },
+          { value: 'v_inspect_report_an', label: 'отчёты инспекции' },
         ],
       },
     };
@@ -216,6 +234,9 @@ function questionFor(slot, slots) {
   }
   if (slot === 'id_profile_seller') {
     return { text: 'Номер профиля продавца. Пусто — продавец любой.', control: { type: 'text' } };
+  }
+  if (slot === 'id_user') {
+    return { text: 'Номер пользователя, который создал лот из отчёта. Автор отчёта — другой человек.', control: { type: 'text' } };
   }
   if (slot === 'thresholds') {
     return {

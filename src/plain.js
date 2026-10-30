@@ -89,6 +89,12 @@ function whoSentence(slots) {
   if (leader) lines.push(`Покупатель, который забрал лот, номер ${leader.value}.`);
   const bidder = findFilter(filters, 'id_profile_bid');
   if (bidder) lines.push(`Профиль, который делал ставки, номер ${bidder.value}.`);
+  const maker = findFilter(filters, 'id_user');
+  if (maker && /v_lot_from_report_an|v_inspect_report_an/.test(slots.mart || '')) {
+    lines.push(`Пользователь номер ${maker.value}.`);
+  }
+  const inspector = findFilter(filters, 'id_user_inspector');
+  if (inspector) lines.push(`Автор отчёта, номер ${inspector.value}.`);
   const seller = findFilter(filters, 'id_profile_seller');
   if (seller) lines.push(`Продавец номер ${seller.value}.`);
   else if (Object.prototype.hasOwnProperty.call(slots.params || {}, 'id_profile_seller') && (slots.params.id_profile_seller === null || slots.params.id_profile_seller === '')) {
@@ -126,6 +132,7 @@ function whatSentence(slots, metricId) {
     return `Список покупателей по дате регистрации, у которых есть ставки или покупки у продавцов ${ids}. Остальные не входят. Ставки без прокси. Период не режет ставки и покупки. В списке есть имя. Телефона и почты нет. Удалённые профили входят. Удалённые лоты в числе покупок входят.`;
   }
   if (metricId === 'users_with_profile_roles') return 'Список пользователей и всех их профилей. Роль профиля — покупатель или продавец. Подписчик не используется.';
+  if (metricId === 'lots_from_reports_by_user') return 'Сколько лотов создано из отчётов инспекции. Перевыставление и поздняя привязка отчёта к уже существующему лоту сюда не входят.';
   const agg = slots.metric?.agg;
   const grain = slots.grain === 'profile' ? 'профилей' : slots.grain === 'user' ? 'пользователей' : slots.grain === 'bid_profile' ? 'ставок профиля на лоте' : 'лотов';
   if (agg === 'count') return `Количество ${grain}.`;
@@ -149,6 +156,7 @@ function freshness(mart) {
   if (/t_auct_/.test(mart || '')) return 'Цифры на момент ночной пересборки лотов, около 03:00, не на текущую секунду.';
   if (/prof_/.test(mart || '')) return 'Профили — снимок. Насколько он свежий, видно по журналу обновления на момент вопроса.';
   if (/users/.test(mart || '')) return 'Пользователи — снимок. Насколько он свежий, видно по журналу обновления на момент вопроса.';
+  if (/v_inspect_report_an|v_lot_from_report_an/.test(mart || '')) return 'Цифры на момент запроса: это вьюха, не ночной снимок.';
   return '';
 }
 
@@ -157,6 +165,8 @@ export function plainText(slots, { metricId = null, deleted = null, assumptions 
   const lines = [
     whatSentence(slots, metricId),
     /t_auct_total_an/.test(mart) ? 'Каждая строка — один лот. Повторный раунд перевыставления считается отдельно, это не одна машина.' : '',
+    /v_lot_from_report_an/.test(mart) ? 'Одна строка — один лот, созданный из отчёта. Повторный раунд перевыставления не считается.' : '',
+    /v_inspect_report_an/.test(mart) ? 'Одна строка — один отчёт инспекции.' : '',
     whoSentence(slots),
     statusSentence(slots.filters || [], mart),
     periodSentence(slots.time, mart, slots),

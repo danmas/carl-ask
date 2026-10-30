@@ -71,6 +71,9 @@ export function applyAnswers(slots, values) {
       if (/^(все|всё|любой|любые|любое|any|all)$/i.test(String(value || '').trim()) || value === '' || value == null) {
         out.filters = (out.filters || []).filter((filter) => filter.column !== column && filter.column !== 'id_profile');
       } else upsertFilter(out, column, value);
+    } else if (key === 'id_user') {
+      if (value !== null && value !== undefined && value !== '') upsertFilter(out, 'id_user', value);
+      else out.filters = (out.filters || []).filter((filter) => filter.column !== 'id_user');
     } else if (key === 'id_profile_seller') {
       out.params = { ...(out.params || {}), id_profile_seller: value === '' ? null : value };
       if (value !== null && value !== undefined && value !== '') upsertFilter(out, 'id_profile_seller', value);
